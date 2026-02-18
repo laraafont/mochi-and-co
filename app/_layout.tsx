@@ -1,28 +1,16 @@
+import React from "react";
+
 import {
   Kodchasan_400Regular,
   Kodchasan_600SemiBold,
   Kodchasan_700Bold,
 } from "@expo-google-fonts/kodchasan";
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
+
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
-import "react-native-reanimated";
-
-import { useColorScheme } from "@/hooks/use-color-scheme";
-
-export const unstable_settings = {
-  anchor: "(tabs)",
-};
-
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   const [fontsLoaded] = useFonts({
     Kodchasan_400Regular,
     Kodchasan_600SemiBold,
@@ -34,15 +22,12 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+    <>
       <Stack>
+        {/* main tab navigation */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="modal"
-          options={{ presentation: "modal", title: "Modal" }}
-        />
       </Stack>
       <StatusBar style="auto" />
-    </ThemeProvider>
+    </>
   );
 }
