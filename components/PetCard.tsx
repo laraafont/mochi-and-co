@@ -10,6 +10,8 @@ type PetCardProps = {
     name: string;
     species: string;
     age_years: number;
+    breed: string;
+    size: string;
   };
   onPress?: () => void; // optional function (when card is tapped)
 };
@@ -26,7 +28,8 @@ export default function PetCard({ pet, onPress }: PetCardProps) {
 
       {/* display species and age */}
       <Text style={styles.details}>
-        {pet.species} • {pet.age_years} years old
+        {pet.species} • {pet.age_years} years old {"\n"}
+        {pet.breed} • {pet.size}
       </Text>
     </TouchableOpacity>
   );
