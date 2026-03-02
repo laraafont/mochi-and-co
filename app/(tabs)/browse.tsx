@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,87 +15,99 @@ import PetCard from "../../components/PetCard";
 import { supabase } from "../../lib/supabase";
 import { colors, fonts, fontSizes, spacing } from "../../theme";
 
-// main screen component for browse tab
 export default function BrowseScreen() {
-  // create state variaable called pets
-  // pets = current value
-  // setPets = function to update it
-  // initial value is empty array
   const [pets, setPets] = useState<any[]>([]);
-
-  // a boolean to show or hide the sidebar
+  const [loading, setLoading] = useState(true); // Added loading state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
   const router = useRouter();
 
-  // connect the hook, pass it pets array from supabase
-  // we get back filteredPets, which is the list that shrinks as the user picks filters
+  // This connects your Logic (hook) to your UI
   const { filters, setFilters, filteredPets } = usePetFilters(pets);
 
-  // useEffect runs after component mounts
-  // empty dependency array [] means:
-  // run only once when screen loads
   useEffect(() => {
     fetchPets();
   }, []);
 
   async function fetchPets() {
-    const { data, error } = await supabase
-      .from("pets")
-      .select("*")
-      .eq("status", "active");
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("pets")
+        .select("*")
+        .eq("status", "active");
 
-    // if database returns error
-    if (error) {
-      console.log("Error fetching pets:", error);
-    } else {
-      // if successful:
-      // update state with return data
-      // data could be null, so fallback to []
+      if (error) throw error;
       setPets(data || []);
+    } catch (error) {
+      console.error("Error fetching pets:", error);
+    } finally {
+      setLoading(false);
     }
   }
 
-  // render UI
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* search bar: when onPress -> isSidebarOpen: true */}
+      {/* Search Bar / Trigger */}
       <TouchableOpacity
         style={styles.searchBarTrigger}
         onPress={() => setIsSidebarOpen(true)}
       >
-        <Ionicons name="search" size={20} color={colors.textSecondary} />
+        <Ionicons name="search" size={20} color={colors.background} />
         <Text style={styles.searchPlaceholder}>find your purrfect pet</Text>
       </TouchableOpacity>
 
-      {/* scrollview allows vertical scrolling if many pets exist
-      contentcontainerstyle styles the inside content */}
-      <ScrollView
-        style={{ flex: 1, backgroundColor: colors.background }}
-        contentContainerStyle={{ padding: spacing.lg }}
-      >
-        {/*
-          pets.map loops over each pet in array
-          for each pet, render a PetCard component
-        */}
-        {filteredPets.map((pet) => (
-          <PetCard
-            key={pet.id}
-            pet={pet}
-            onPress={() =>
-              router.push({
-                pathname: "/pet/[id]",
-                params: { id: pet.id },
-              })
-            }
-          />
-        ))}
-      </ScrollView>
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: spacing.lg }}
+        >
+          {/* Handle No Results Found */}
+          {filteredPets.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons
+                name="paw-outline"
+                size={64}
+                color={colors.primary}
+                style={{ opacity: 0.3 }}
+              />
+              <Text style={styles.emptyText}>no pets match those filters.</Text>
+              <TouchableOpacity
+                onPress={() =>
+                  setFilters({
+                    type: null,
+                    gender: null,
+                    breed: null,
+                    age_range: null,
+                    neutered_spayed: null,
+                    hypoallergenic: null,
+                    compatible_with: null,
+                  })
+                }
+              >
+                <Text style={styles.clearFiltersLink}>clear all filters</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            filteredPets.map((pet) => (
+              <PetCard
+                key={pet.id}
+                pet={pet}
+                onPress={() =>
+                  router.push({
+                    pathname: "/pet/[id]",
+                    params: { id: pet.id },
+                  })
+                }
+              />
+            ))
+          )}
+        </ScrollView>
+      )}
 
-      {/* sidebar component:
-      we pass 'isVisible' so it knows when to pop up
-      onClose lets the sidebar tell this file to close it
-      filters and setFilters connect sidebar UI to hook logic */}
       <FilterSidebar
         isVisible={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -106,18 +119,37 @@ export default function BrowseScreen() {
 }
 
 const styles = StyleSheet.create({
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
   searchBarTrigger: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.primary,
-    margin: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
     padding: spacing.md,
     borderRadius: 25,
     gap: 10,
   },
   searchPlaceholder: {
-    color: colors.textPrimary,
-    fontSize: fontSizes.xs,
+    color: colors.background,
+    fontSize: fontSizes.md,
     fontFamily: fonts.regular,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    marginTop: 100,
+  },
+  emptyText: {
+    fontFamily: fonts.regular,
+    fontSize: fontSizes.md,
+    color: colors.primary,
+    marginTop: 20,
+  },
+  clearFiltersLink: {
+    fontFamily: fonts.bold,
+    color: colors.primary,
+    textDecorationLine: "underline",
+    marginTop: 10,
   },
 });

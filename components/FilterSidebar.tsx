@@ -1,14 +1,20 @@
 import { colors, fontSizes, fonts, spacing } from "@/theme";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React from "react";
+import {
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-// defines what props (inputs) this component needs to work
 interface SidebarProps {
-  isVisible: boolean; // is sidebar open?
-  onClose: () => void; // a function to call when we want to close it
-  filters: any; // the current filter selections
-  setFilters: (f: any) => void; // function to update filters
+  isVisible: boolean;
+  onClose: () => void;
+  filters: any;
+  setFilters: (f: any) => void;
 }
 
 export default function FilterSidebar({
@@ -17,82 +23,169 @@ export default function FilterSidebar({
   filters,
   setFilters,
 }: SidebarProps) {
-  // step keeps track of if we are on the dog/cat screen or the dropdown filters
-  const [step, setStep] = useState(1);
-  const [draftFilters, setDraftFilters] = useState(filters);
-
-  useEffect(() => {
-    if (isVisible) {
-      setStep(1);
-      setDraftFilters(filters);
-    }
-  }, [isVisible, filters]);
-
-  // helper function to close the sidebar and reset back to step 1 (dog/cat screen)
-  const handleDismiss = () => {
-    setStep(1);
-    onClose();
+  const updateFilter = (key: string, value: any) => {
+    setFilters({ ...filters, [key]: value });
   };
 
-  const handleApply = () => {
-    setFilters(draftFilters);
-    handleDismiss();
+  // Logic to clear all filters
+  const resetFilters = () => {
+    setFilters({
+      type: null,
+      gender: null,
+      breed: null,
+      age_range: null,
+      neutered_spayed: null,
+      hypoallergenic: null,
+      compatible_with: null,
+    });
   };
 
   return (
-    // modal is a built in react native component that slides over the current screen
     <Modal
       visible={isVisible}
       animationType="slide"
       transparent={true}
-      onRequestClose={handleDismiss}
+      onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        {/* make background dacker when sidebar is visible */}
         <View style={styles.sidebarContent}>
-          {/* header area */}
-          <TouchableOpacity onPress={handleDismiss} style={styles.closeBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.primary} />
-          </TouchableOpacity>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onClose} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={24} color={colors.primary} />
+              <Text style={styles.headerText}>search filters</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={resetFilters}>
+              <Text style={styles.resetText}>reset</Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* step 1: dog or cat? */}
-          {step === 1 && (
-            <View style={styles.stepContainer}>
-              <Text style={styles.questionText}>dog or cat?</Text>
-
-              {/* clicking dog updates the filter and moves us to step 2 */}
-              <TouchableOpacity
-                style={styles.choiceBtn}
-                onPress={() => {
-                  setDraftFilters({ ...draftFilters, type: "dog" });
-                  setStep(2);
-                }}
-              >
-                <Text style={styles.choiceText}>dog</Text>
-              </TouchableOpacity>
-
-              {/* cat button */}
-              <TouchableOpacity
-                style={styles.choiceBtn}
-                onPress={() => {
-                  setDraftFilters({ ...draftFilters, type: "cat" });
-                  setStep(2);
-                }}
-              >
-                <Text style={styles.choiceText}>cat</Text>
-              </TouchableOpacity>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* TYPE SELECTION */}
+            <Text style={styles.sectionLabel}>pet type</Text>
+            <View style={styles.typeContainer}>
+              {["dog", "cat"].map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[
+                    styles.typeBtn,
+                    filters.type === t && styles.typeBtnActive,
+                  ]}
+                  onPress={() =>
+                    updateFilter("type", filters.type === t ? null : t)
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.typeText,
+                      filters.type === t && styles.typeTextActive,
+                    ]}
+                  >
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          )}
 
-          {/* step 2 UI: dropdowns */}
-          {step === 2 && (
-            <View style={styles.stepContainer}>
-              <Text style={styles.questionText}>fine tune your search</Text>
-              <TouchableOpacity onPress={handleApply} style={styles.applyBtn}>
-                <Text style={styles.applyText}>apply filters</Text>
-              </TouchableOpacity>
+            {/* DYNAMIC DROPDOWNS */}
+            {[
+              { label: "gender", key: "gender", options: ["male", "female"] },
+              {
+                label: "age range",
+                key: "age_range",
+                options: ["baby", "young", "adult", "senior"],
+              },
+              {
+                label: "breed",
+                key: "breed",
+                options: ["Golden Retriever", "Poodle", "Tabby", "Siamese"],
+              },
+              {
+                label: "compatible with",
+                key: "compatible_with",
+                options: ["dogs", "cats", "kids"],
+              },
+            ].map((item) => (
+              <View key={item.key}>
+                <Text style={styles.sectionLabel}>{item.label}</Text>
+                <TouchableOpacity
+                  style={styles.dropdownTrigger}
+                  onPress={() => {
+                    // Temporary: Cyles options on click until we build the picker
+                    const cur = item.options.indexOf(filters[item.key]);
+                    updateFilter(
+                      item.key,
+                      item.options[(cur + 1) % item.options.length],
+                    );
+                  }}
+                >
+                  <Text style={styles.dropdownText}>
+                    {filters[item.key] || `any ${item.label}`}
+                  </Text>
+                  <Ionicons
+                    name="chevron-down"
+                    size={20}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            {/* BOOLEAN TOGGLES */}
+            <View style={styles.boolRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionLabel}>neutered?</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.typeBtn,
+                    filters.neutered_spayed === true && styles.typeBtnActive,
+                  ]}
+                  onPress={() =>
+                    updateFilter(
+                      "neutered_spayed",
+                      filters.neutered_spayed === true ? null : true,
+                    )
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.typeText,
+                      filters.neutered_spayed === true && styles.typeTextActive,
+                    ]}
+                  >
+                    yes
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <View style={{ flex: 1, marginLeft: spacing.md }}>
+                <Text style={styles.sectionLabel}>allergies?</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.typeBtn,
+                    filters.hypoallergenic === true && styles.typeBtnActive,
+                  ]}
+                  onPress={() =>
+                    updateFilter(
+                      "hypoallergenic",
+                      filters.hypoallergenic === true ? null : true,
+                    )
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.typeText,
+                      filters.hypoallergenic === true && styles.typeTextActive,
+                    ]}
+                  >
+                    yes
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
+
+            <TouchableOpacity onPress={onClose} style={styles.applyBtn}>
+              <Text style={styles.applyText}>show results</Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -102,56 +195,83 @@ export default function FilterSidebar({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)", // darken background behind sidebar
-    justifyContent: "flex-end", // align sidebar to the bottom
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
   },
   sidebarContent: {
     backgroundColor: colors.background,
-    height: "90%",
+    height: "85%",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     padding: spacing.lg,
   },
-  closeBtn: {
+  header: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    alignSelf: "flex-start",
+    marginBottom: spacing.xl,
   },
-  stepContainer: {
+  backBtn: { flexDirection: "row", alignItems: "center", gap: 12 },
+  headerText: {
+    fontFamily: fonts.bold,
+    fontSize: fontSizes.xl,
+    color: colors.primary,
+  },
+  resetText: {
+    fontFamily: fonts.regular,
+    color: colors.primary,
+    textDecorationLine: "underline",
+  },
+  sectionLabel: {
+    fontFamily: fonts.bold,
+    fontSize: fontSizes.md,
+    color: colors.primary,
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+  },
+  typeContainer: {
+    flexDirection: "row",
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  typeBtn: {
     flex: 1,
+    padding: spacing.md,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: colors.primary,
     alignItems: "center",
-    paddingTop: spacing.md,
   },
-  questionText: {
+  typeBtnActive: { backgroundColor: colors.primary },
+  typeText: { fontFamily: fonts.bold, color: colors.primary },
+  typeTextActive: { color: colors.background },
+  dropdownTrigger: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: spacing.md,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#A08E74",
+    marginBottom: spacing.md,
+  },
+  dropdownText: {
     fontFamily: fonts.regular,
     fontSize: fontSizes.md,
     color: colors.primary,
-    marginBottom: spacing.xl,
   },
-  choiceBtn: {
-    backgroundColor: colors.primary,
-    width: "100%",
-    padding: spacing.md,
-    borderRadius: 15,
-    marginBottom: spacing.md,
-    alignItems: "center",
-  },
-  choiceText: {
-    fontFamily: fonts.bold,
-    fontSize: fontSizes.md,
-    color: colors.background,
-  },
+  boolRow: { flexDirection: "row", marginBottom: spacing.lg },
   applyBtn: {
     backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
+    padding: spacing.lg,
     borderRadius: 25,
-    marginTop: "auto", // pushes button to the bottom of container
-    marginBottom: spacing.xl,
+    alignItems: "center",
+    marginTop: spacing.xl,
+    marginBottom: 50,
   },
   applyText: {
     fontFamily: fonts.bold,
     fontSize: fontSizes.md,
-    color: colors.textSecondary,
+    color: colors.background,
   },
 });

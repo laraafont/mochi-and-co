@@ -1,46 +1,87 @@
 import { useMemo, useState } from "react";
 
-// a "custom hook" is jsut a function that starts with 'use'
-// allows us to reuse logic across different screens
+// 1. Define the shape of our filters for TypeScript
+export interface FilterState {
+  type: string | null;
+  gender: string | null;
+  breed: string | null;
+  age_range: string | null;
+  neutered_spayed: boolean | null;
+  hypoallergenic: boolean | null;
+  compatible_with: "dogs" | "cats" | "kids" | null;
+}
+
 export function usePetFilters(allPets: any[]) {
-  // 'useState' creates a variable (filters) and a function to update it (setFilters)
-  // initialize all with 'null' because no filters are selected yet
-  const [filters, setFilters] = useState({
-    type: null, // dog or cat
-    gender: null, // male or female
-    breed: null, // string
+  // 2. Initialize state with the FilterState interface
+  const [filters, setFilters] = useState<FilterState>({
+    type: null,
+    gender: null,
+    breed: null,
+    age_range: null,
     neutered_spayed: null,
     hypoallergenic: null,
+    compatible_with: null,
   });
 
-  // 'useMemo' is for performance
-  // makes sure only re-calculate this if 'filters' or 'allPets' changes
+  // 3. The filtering logic (The Kitchen)
   const filteredPets = useMemo(() => {
-    // 'filter' is a built-in JS function used to create a new array with return results
-    // we'll be testing every single pet against rules
     return allPets.filter((pet) => {
+      // A. Match Species (e.g., 'Cat' vs 'cat')
+      const matchType =
+        !filters.type ||
+        pet.species?.toLowerCase() === (filters.type as string).toLowerCase();
+
+      // B. Match Gender
+      const matchGender =
+        !filters.gender ||
+        pet.gender?.toLowerCase() === (filters.gender as string).toLowerCase();
+
+      // C. Match Breed (Exact string match)
+      const matchBreed = !filters.breed || pet.breed === filters.breed;
+
+      // D. Map Age Range (String) to Age Years (Number from DB)
+      let matchAge = true;
+      if (filters.age_range) {
+        const age = pet.age_years || 0;
+        if (filters.age_range === "baby") matchAge = age <= 1;
+        else if (filters.age_range === "young") matchAge = age > 1 && age <= 3;
+        else if (filters.age_range === "adult") matchAge = age > 3 && age <= 8;
+        else if (filters.age_range === "senior") matchAge = age > 8;
+      }
+
+      // E. Match Booleans (Check specifically for null vs false)
+      const matchNeutered =
+        filters.neutered_spayed === null
+          ? true
+          : pet.neutered_spayed === filters.neutered_spayed;
+
+      const matchHypo =
+        filters.hypoallergenic === null
+          ? true
+          : pet.hypoallergenic === filters.hypoallergenic;
+
+      // F. Match Compatibility (Checks your specific SQL boolean columns)
+      let matchCompatible = true;
+      if (filters.compatible_with === "dogs") {
+        matchCompatible = pet.compatible_with_dogs === true;
+      } else if (filters.compatible_with === "cats") {
+        matchCompatible = pet.compatible_with_cats === true;
+      } else if (filters.compatible_with === "kids") {
+        matchCompatible = pet.compatible_with_kids === true;
+      }
+
+      // Only return true if the pet passes EVERY test
       return (
-        // 1. if filters.type is null -> let it through
-        // if not null, the pet's type must match the filter
-        (!filters.type ||
-          String(pet.species ?? "").toLowerCase() ===
-            String(filters.type).toLowerCase()) &&
-        // same for gender
-        (!filters.gender || pet.gender === filters.gender) &&
-        // same for breed
-        (!filters.breed || pet.breed === filters.breed) &&
-        // for booleans, check if the filter is null
-        // if the user hasn't picked a boolean filter, let the pet go through
-        (filters.neutered_spayed === null
-          ? true
-          : pet.neutered_spayed === filters.neutered_spayed) &&
-        (filters.hypoallergenic === null
-          ? true
-          : pet.hypoallergenic === filters.hypoallergenic)
+        matchType &&
+        matchGender &&
+        matchBreed &&
+        matchAge &&
+        matchNeutered &&
+        matchHypo &&
+        matchCompatible
       );
     });
-  }, [filters, allPets]); // re-run the memo when these arrays get changed
+  }, [filters, allPets]);
 
-  // return these to be used in browse
   return { filters, setFilters, filteredPets };
 }
