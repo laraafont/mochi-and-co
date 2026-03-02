@@ -65,7 +65,7 @@ export default function BrowseScreen() {
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: spacing.lg }}
         >
-          {/* Handle No Results Found */}
+          {/* no results found */}
           {filteredPets.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons
@@ -113,6 +113,7 @@ export default function BrowseScreen() {
         onClose={() => setIsSidebarOpen(false)}
         filters={filters}
         setFilters={setFilters}
+        resultsCount={filteredPets.length}
       />
     </View>
   );

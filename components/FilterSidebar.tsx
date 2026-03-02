@@ -1,7 +1,9 @@
+import { supabase } from "@/lib/supabase";
 import { colors, fontSizes, fonts, spacing } from "@/theme";
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Modal,
   ScrollView,
   StyleSheet,
@@ -9,12 +11,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import OptionSheet from "./OptionSheet";
 
 interface SidebarProps {
   isVisible: boolean;
   onClose: () => void;
   filters: any;
   setFilters: (f: any) => void;
+  resultsCount: number;
 }
 
 export default function FilterSidebar({
@@ -22,12 +26,66 @@ export default function FilterSidebar({
   onClose,
   filters,
   setFilters,
+  resultsCount,
 }: SidebarProps) {
+  const [dynamicBreeds, setDynamicBreeds] = useState<string[]>([]);
+  const [isLoadingBreeds, setIsLoadingBreeds] = useState(false);
+
+  // state to manage the pop-up picker
+  const [pickerConfig, setPickerConfig] = useState<{
+    visible: boolean;
+    title: string;
+    key: string;
+    options: string[];
+  }>({
+    visible: false,
+    title: "",
+    key: "",
+    options: [],
+  });
+
+  // fetch unique breeds from db whenever sidebar opens
+  useEffect(() => {
+    if (isVisible) {
+      fetchUniqueBreeds();
+    }
+  }, [isVisible]);
+
+  async function fetchUniqueBreeds() {
+    setIsLoadingBreeds(true);
+    try {
+      // we select just the breed column and skip nulls
+      const { data, error } = await supabase
+        .from("pets")
+        .select("breed")
+        .eq("status", "active")
+        .not("breed", "is", null);
+
+      if (error) throw error;
+
+      // extract just the strings and remove duplicates using a set
+      const uniqueBreeds = Array.from(new Set(data.map((p) => p.breed))).sort();
+      setDynamicBreeds(uniqueBreeds);
+    } catch (err) {
+      console.error("Error fetching breeds: ", err);
+    } finally {
+      setIsLoadingBreeds(false);
+    }
+  }
+
   const updateFilter = (key: string, value: any) => {
     setFilters({ ...filters, [key]: value });
   };
 
-  // Logic to clear all filters
+  const openPicker = (label: string, key: string, options: string[]) => {
+    setPickerConfig({
+      visible: true,
+      title: `select ${label}`,
+      key,
+      options,
+    });
+  };
+
   const resetFilters = () => {
     setFilters({
       type: null,
@@ -41,154 +99,192 @@ export default function FilterSidebar({
   };
 
   return (
-    <Modal
-      visible={isVisible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <View style={styles.sidebarContent}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={onClose} style={styles.backBtn}>
-              <Ionicons name="arrow-back" size={24} color={colors.primary} />
-              <Text style={styles.headerText}>search filters</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={resetFilters}>
-              <Text style={styles.resetText}>reset</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* TYPE SELECTION */}
-            <Text style={styles.sectionLabel}>pet type</Text>
-            <View style={styles.typeContainer}>
-              {["dog", "cat"].map((t) => (
-                <TouchableOpacity
-                  key={t}
-                  style={[
-                    styles.typeBtn,
-                    filters.type === t && styles.typeBtnActive,
-                  ]}
-                  onPress={() =>
-                    updateFilter("type", filters.type === t ? null : t)
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.typeText,
-                      filters.type === t && styles.typeTextActive,
-                    ]}
-                  >
-                    {t}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+    <>
+      <Modal
+        visible={isVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={onClose}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.sidebarContent}>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={onClose} style={styles.backBtn}>
+                <Ionicons name="arrow-back" size={24} color={colors.primary} />
+                <Text style={styles.headerText}>search filters</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={resetFilters}>
+                <Text style={styles.resetText}>reset</Text>
+              </TouchableOpacity>
             </View>
 
-            {/* DYNAMIC DROPDOWNS */}
-            {[
-              { label: "gender", key: "gender", options: ["male", "female"] },
-              {
-                label: "age range",
-                key: "age_range",
-                options: ["baby", "young", "adult", "senior"],
-              },
-              {
-                label: "breed",
-                key: "breed",
-                options: ["Golden Retriever", "Poodle", "Tabby", "Siamese"],
-              },
-              {
-                label: "compatible with",
-                key: "compatible_with",
-                options: ["dogs", "cats", "kids"],
-              },
-            ].map((item) => (
-              <View key={item.key}>
-                <Text style={styles.sectionLabel}>{item.label}</Text>
-                <TouchableOpacity
-                  style={styles.dropdownTrigger}
-                  onPress={() => {
-                    // Temporary: Cyles options on click until we build the picker
-                    const cur = item.options.indexOf(filters[item.key]);
-                    updateFilter(
-                      item.key,
-                      item.options[(cur + 1) % item.options.length],
-                    );
-                  }}
-                >
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.sectionLabel}>pet type</Text>
+              <View style={styles.typeContainer}>
+                {["dog", "cat"].map((t) => (
+                  <TouchableOpacity
+                    key={t}
+                    style={[
+                      styles.typeBtn,
+                      filters.type === t && styles.typeBtnActive,
+                    ]}
+                    onPress={() =>
+                      updateFilter("type", filters.type === t ? null : t)
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.typeText,
+                        filters.type === t && styles.typeTextActive,
+                      ]}
+                    >
+                      {t}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* GENDER & AGE (Hardcoded options) */}
+              <Text style={styles.sectionLabel}>gender</Text>
+              <TouchableOpacity
+                style={styles.dropdownTrigger}
+                onPress={() =>
+                  openPicker("gender", "gender", ["male", "female"])
+                }
+              >
+                <Text style={styles.dropdownText}>
+                  {filters.gender || "any gender"}
+                </Text>
+              </TouchableOpacity>
+
+              <Text style={styles.sectionLabel}>age range</Text>
+              <TouchableOpacity
+                style={styles.dropdownTrigger}
+                onPress={() =>
+                  openPicker("age", "age_range", [
+                    "baby",
+                    "young",
+                    "adult",
+                    "senior",
+                  ])
+                }
+              >
+                <Text style={styles.dropdownText}>
+                  {filters.age_range || "any age"}
+                </Text>
+              </TouchableOpacity>
+
+              {/* DYNAMIC BREED DROPDOWN */}
+              <Text style={styles.sectionLabel}>breed</Text>
+              <TouchableOpacity
+                style={styles.dropdownTrigger}
+                onPress={() => openPicker("breed", "breed", dynamicBreeds)}
+                disabled={isLoadingBreeds}
+              >
+                {isLoadingBreeds ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
                   <Text style={styles.dropdownText}>
-                    {filters[item.key] || `any ${item.label}`}
+                    {filters.breed || "all breeds"}
                   </Text>
-                  <Ionicons
-                    name="chevron-down"
-                    size={20}
-                    color={colors.primary}
-                  />
-                </TouchableOpacity>
-              </View>
-            ))}
+                )}
+                <Ionicons
+                  name="chevron-down"
+                  size={20}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
 
-            {/* BOOLEAN TOGGLES */}
-            <View style={styles.boolRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sectionLabel}>neutered?</Text>
-                <TouchableOpacity
-                  style={[
-                    styles.typeBtn,
-                    filters.neutered_spayed === true && styles.typeBtnActive,
-                  ]}
-                  onPress={() =>
-                    updateFilter(
-                      "neutered_spayed",
-                      filters.neutered_spayed === true ? null : true,
-                    )
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.typeText,
-                      filters.neutered_spayed === true && styles.typeTextActive,
-                    ]}
-                  >
-                    yes
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <View style={{ flex: 1, marginLeft: spacing.md }}>
-                <Text style={styles.sectionLabel}>allergies?</Text>
-                <TouchableOpacity
-                  style={[
-                    styles.typeBtn,
-                    filters.hypoallergenic === true && styles.typeBtnActive,
-                  ]}
-                  onPress={() =>
-                    updateFilter(
-                      "hypoallergenic",
-                      filters.hypoallergenic === true ? null : true,
-                    )
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.typeText,
-                      filters.hypoallergenic === true && styles.typeTextActive,
-                    ]}
-                  >
-                    yes
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+              {/* COMPATIBILITY */}
+              <Text style={styles.sectionLabel}>compatible with</Text>
+              <TouchableOpacity
+                style={styles.dropdownTrigger}
+                onPress={() =>
+                  openPicker("compatibility", "compatible_with", [
+                    "dogs",
+                    "cats",
+                    "kids",
+                  ])
+                }
+              >
+                <Text style={styles.dropdownText}>
+                  {filters.compatible_with || "no preference"}
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity onPress={onClose} style={styles.applyBtn}>
-              <Text style={styles.applyText}>show results</Text>
-            </TouchableOpacity>
-          </ScrollView>
+              {/* BOOLEANS */}
+              <View style={styles.boolRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sectionLabel}>neutered?</Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.typeBtn,
+                      filters.neutered_spayed === true && styles.typeBtnActive,
+                    ]}
+                    onPress={() =>
+                      updateFilter(
+                        "neutered_spayed",
+                        filters.neutered_spayed === true ? null : true,
+                      )
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.typeText,
+                        filters.neutered_spayed === true &&
+                          styles.typeTextActive,
+                      ]}
+                    >
+                      yes
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={{ flex: 1, marginLeft: spacing.md }}>
+                  <Text style={styles.sectionLabel}>hypoallergenic?</Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.typeBtn,
+                      filters.hypoallergenic === true && styles.typeBtnActive,
+                    ]}
+                    onPress={() =>
+                      updateFilter(
+                        "hypoallergenic",
+                        filters.hypoallergenic === true ? null : true,
+                      )
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.typeText,
+                        filters.hypoallergenic === true &&
+                          styles.typeTextActive,
+                      ]}
+                    >
+                      yes
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <TouchableOpacity onPress={onClose} style={styles.applyBtn}>
+                <Text style={styles.applyText}>
+                  show {resultsCount} results
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      <OptionSheet
+        isVisible={pickerConfig.visible}
+        title={pickerConfig.title}
+        options={pickerConfig.options}
+        selectedValue={filters[pickerConfig.key]}
+        onClose={() => setPickerConfig({ ...pickerConfig, visible: false })}
+        onSelect={(val) => updateFilter(pickerConfig.key, val)}
+      />
+    </>
   );
 }
 
@@ -224,7 +320,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontFamily: fonts.bold,
-    fontSize: fontSizes.md,
+    fontSize: 20,
     color: colors.primary,
     marginBottom: spacing.sm,
     marginTop: spacing.md,
