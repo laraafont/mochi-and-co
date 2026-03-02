@@ -119,6 +119,7 @@ export default function FilterSidebar({
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
+              {/* pet type (cat or dog)*/}
               <Text style={styles.sectionLabel}>pet type</Text>
               <View style={styles.typeContainer}>
                 {["dog", "cat"].map((t) => (
@@ -144,7 +145,7 @@ export default function FilterSidebar({
                 ))}
               </View>
 
-              {/* GENDER & AGE (Hardcoded options) */}
+              {/* gender + age */}
               <Text style={styles.sectionLabel}>gender</Text>
               <TouchableOpacity
                 style={styles.dropdownTrigger}
@@ -155,6 +156,11 @@ export default function FilterSidebar({
                 <Text style={styles.dropdownText}>
                   {filters.gender || "any gender"}
                 </Text>
+                <Ionicons
+                  name="chevron-down"
+                  size={20}
+                  color={colors.primary}
+                />
               </TouchableOpacity>
 
               <Text style={styles.sectionLabel}>age range</Text>
@@ -172,9 +178,14 @@ export default function FilterSidebar({
                 <Text style={styles.dropdownText}>
                   {filters.age_range || "any age"}
                 </Text>
+                <Ionicons
+                  name="chevron-down"
+                  size={20}
+                  color={colors.primary}
+                />
               </TouchableOpacity>
 
-              {/* DYNAMIC BREED DROPDOWN */}
+              {/* dynamic breed dropdown */}
               <Text style={styles.sectionLabel}>breed</Text>
               <TouchableOpacity
                 style={styles.dropdownTrigger}
@@ -195,7 +206,7 @@ export default function FilterSidebar({
                 />
               </TouchableOpacity>
 
-              {/* COMPATIBILITY */}
+              {/* comptaible with */}
               <Text style={styles.sectionLabel}>compatible with</Text>
               <TouchableOpacity
                 style={styles.dropdownTrigger}
@@ -210,9 +221,14 @@ export default function FilterSidebar({
                 <Text style={styles.dropdownText}>
                   {filters.compatible_with || "no preference"}
                 </Text>
+                <Ionicons
+                  name="chevron-down"
+                  size={20}
+                  color={colors.primary}
+                />
               </TouchableOpacity>
 
-              {/* BOOLEANS */}
+              {/* neutered/hypoallergenic booleans */}
               <View style={styles.boolRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.sectionLabel}>neutered?</Text>

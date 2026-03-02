@@ -17,11 +17,10 @@ import { colors, fonts, fontSizes, spacing } from "../../theme";
 
 export default function BrowseScreen() {
   const [pets, setPets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true); // Added loading state
+  const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const router = useRouter();
 
-  // This connects your Logic (hook) to your UI
   const { filters, setFilters, filteredPets } = usePetFilters(pets);
 
   useEffect(() => {
@@ -47,7 +46,7 @@ export default function BrowseScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Search Bar / Trigger */}
+      {/* search bar */}
       <TouchableOpacity
         style={styles.searchBarTrigger}
         onPress={() => setIsSidebarOpen(true)}

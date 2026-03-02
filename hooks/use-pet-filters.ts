@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-// 1. Define the shape of our filters for TypeScript
+// 1. define the filters
 export interface FilterState {
   type: string | null;
   gender: string | null;
@@ -12,7 +12,7 @@ export interface FilterState {
 }
 
 export function usePetFilters(allPets: any[]) {
-  // 2. Initialize state with the FilterState interface
+  // 2. initialize state as all null
   const [filters, setFilters] = useState<FilterState>({
     type: null,
     gender: null,
@@ -23,23 +23,23 @@ export function usePetFilters(allPets: any[]) {
     compatible_with: null,
   });
 
-  // 3. The filtering logic (The Kitchen)
+  // 3. this is where the filtering happens!
   const filteredPets = useMemo(() => {
     return allPets.filter((pet) => {
-      // A. Match Species (e.g., 'Cat' vs 'cat')
+      // A. match species (Cat vs cat is being passed as the same for sake of db as it is right now)
       const matchType =
         !filters.type ||
         pet.species?.toLowerCase() === (filters.type as string).toLowerCase();
 
-      // B. Match Gender
+      // B. match gender
       const matchGender =
         !filters.gender ||
         pet.gender?.toLowerCase() === (filters.gender as string).toLowerCase();
 
-      // C. Match Breed (Exact string match)
+      // C. match breed
       const matchBreed = !filters.breed || pet.breed === filters.breed;
 
-      // D. Map Age Range (String) to Age Years (Number from DB)
+      // D. map Age Range (String) to age_years (Number from DB)
       let matchAge = true;
       if (filters.age_range) {
         const age = pet.age_years || 0;
@@ -49,7 +49,7 @@ export function usePetFilters(allPets: any[]) {
         else if (filters.age_range === "senior") matchAge = age > 8;
       }
 
-      // E. Match Booleans (Check specifically for null vs false)
+      // E. match Booleans (Check specifically for null vs false)
       const matchNeutered =
         filters.neutered_spayed === null
           ? true
@@ -60,7 +60,7 @@ export function usePetFilters(allPets: any[]) {
           ? true
           : pet.hypoallergenic === filters.hypoallergenic;
 
-      // F. Match Compatibility (Checks your specific SQL boolean columns)
+      // F. match compatibility
       let matchCompatible = true;
       if (filters.compatible_with === "dogs") {
         matchCompatible = pet.compatible_with_dogs === true;
@@ -70,7 +70,7 @@ export function usePetFilters(allPets: any[]) {
         matchCompatible = pet.compatible_with_kids === true;
       }
 
-      // Only return true if the pet passes EVERY test
+      // only return true if the pet passes every test
       return (
         matchType &&
         matchGender &&
