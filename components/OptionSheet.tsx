@@ -1,12 +1,12 @@
 import { colors, fonts, fontSizes, spacing } from "@/theme";
 import React from "react";
 import {
-    FlatList,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 interface OptionSheetProps {
@@ -26,52 +26,48 @@ export default function OptionSheet({
   onSelect,
   selectedValue,
 }: OptionSheetProps) {
-  return (
-    <Modal visible={isVisible} transparent animationType="fade">
-      <TouchableOpacity
-        style={styles.overlay}
-        activeOpacity={1}
-        onPress={onClose}
-      >
-        <View style={styles.sheet}>
-          <Text style={styles.title}>{title}</Text>
+  if (!isVisible) return null;
 
-          <FlatList
-            data={options}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => (
-              <TouchableOpacity
+  return (
+    <View style={styles.overlay}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <View style={styles.sheet}>
+        <Text style={styles.title}>{title}</Text>
+
+        <FlatList
+          data={options}
+          keyExtractor={(item) => item}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.option, selectedValue === item && styles.selectedOption]}
+              onPress={() => {
+                onSelect(item);
+                onClose();
+              }}
+            >
+              <Text
                 style={[
-                  styles.option,
-                  selectedValue === item && styles.selectedOption,
+                  styles.optionText,
+                  selectedValue === item && styles.selectedOptionText,
                 ]}
-                onPress={() => {
-                  onSelect(item);
-                  onClose();
-                }}
               >
-                <Text
-                  style={[
-                    styles.optionText,
-                    selectedValue === item && styles.selectedOption,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      </TouchableOpacity>
-    </Modal>
+                {item}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.4)",
     justifyContent: "flex-end",
+    zIndex: 20,
   },
   sheet: {
     backgroundColor: colors.background,

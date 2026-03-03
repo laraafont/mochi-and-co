@@ -51,6 +51,12 @@ export default function FilterSidebar({
     }
   }, [isVisible]);
 
+  useEffect(() => {
+    if (!isVisible && pickerConfig.visible) {
+      setPickerConfig((prev) => ({ ...prev, visible: false }));
+    }
+  }, [isVisible, pickerConfig.visible]);
+
   async function fetchUniqueBreeds() {
     setIsLoadingBreeds(true);
     try {
@@ -98,18 +104,23 @@ export default function FilterSidebar({
     });
   };
 
+  const handleClose = () => {
+    setPickerConfig((prev) => ({ ...prev, visible: false }));
+    onClose();
+  };
+
   return (
     <>
       <Modal
         visible={isVisible}
         animationType="slide"
         transparent={true}
-        onRequestClose={onClose}
+        onRequestClose={handleClose}
       >
         <View style={styles.overlay}>
           <View style={styles.sidebarContent}>
             <View style={styles.header}>
-              <TouchableOpacity onPress={onClose} style={styles.backBtn}>
+              <TouchableOpacity onPress={handleClose} style={styles.backBtn}>
                 <Ionicons name="arrow-back" size={24} color={colors.primary} />
                 <Text style={styles.headerText}>search filters</Text>
               </TouchableOpacity>
@@ -282,24 +293,26 @@ export default function FilterSidebar({
                 </View>
               </View>
 
-              <TouchableOpacity onPress={onClose} style={styles.applyBtn}>
+              <TouchableOpacity onPress={handleClose} style={styles.applyBtn}>
                 <Text style={styles.applyText}>
                   show {resultsCount} results
                 </Text>
               </TouchableOpacity>
             </ScrollView>
+
+            <OptionSheet
+              isVisible={pickerConfig.visible}
+              title={pickerConfig.title}
+              options={pickerConfig.options}
+              selectedValue={filters[pickerConfig.key]}
+              onClose={() =>
+                setPickerConfig((prev) => ({ ...prev, visible: false }))
+              }
+              onSelect={(val) => updateFilter(pickerConfig.key, val)}
+            />
           </View>
         </View>
       </Modal>
-
-      <OptionSheet
-        isVisible={pickerConfig.visible}
-        title={pickerConfig.title}
-        options={pickerConfig.options}
-        selectedValue={filters[pickerConfig.key]}
-        onClose={() => setPickerConfig({ ...pickerConfig, visible: false })}
-        onSelect={(val) => updateFilter(pickerConfig.key, val)}
-      />
     </>
   );
 }
