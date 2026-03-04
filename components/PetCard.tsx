@@ -13,6 +13,7 @@ type PetCardProps = {
     age_years: number;
     breed: string;
     size: string;
+    gender: string;
   };
   onPress?: () => void; // optional function (when card is tapped)
 };
