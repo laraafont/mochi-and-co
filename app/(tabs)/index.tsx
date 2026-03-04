@@ -1,3 +1,4 @@
+import { getPetImage } from "@/constants/PetAssets";
 import { supabase } from "@/lib/supabase";
 import { colors, fonts, fontSizes, spacing } from "@/theme";
 import { useRouter } from "expo-router";
@@ -72,8 +73,12 @@ export default function HomeScreen() {
                 >
                   <View style={styles.imagePlaceholder}>
                     <Image
-                      source={require("@/assets/images/cocomascot.png")}
-                      style={styles.placeholderIcon}
+                      source={getPetImage(pet.name)}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        borderRadius: 10,
+                      }}
                     />
                   </View>
                   <Text style={styles.petName} numberOfLines={1}>

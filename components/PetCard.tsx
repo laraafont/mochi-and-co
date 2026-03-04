@@ -1,5 +1,6 @@
+import { getPetImage } from "@/constants/PetAssets";
 import React from "react"; // import react because we are creating a react component
-import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { colors, fonts, fontSizes } from "../theme";
 
 // typescript type definition for props
@@ -23,13 +24,22 @@ export default function PetCard({ pet, onPress }: PetCardProps) {
     // touchableopacity makes the entire card clickable
     // onPress runs the function passed from parent
     <TouchableOpacity onPress={onPress} style={styles.card}>
+      {/* photo section */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={getPetImage(pet.name)}
+          style={styles.petPhoto}
+          resizeMode="cover"
+        />
+      </View>
+
       {/* display pet name */}
       <Text style={styles.name}>{pet.name}</Text>
 
       {/* display species and age */}
       <Text style={styles.details}>
         {pet.species} • {pet.age_years} years old {"\n"}
-        {pet.breed} • {pet.size}
+        {pet.breed} • {pet.gender}
       </Text>
     </TouchableOpacity>
   );
@@ -56,4 +66,13 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: 4,
   },
+  imageContainer: {
+    height: 150,
+    width: "100%",
+    backgroundColor: "#D1C4B2",
+    borderRadius: 12,
+    marginBottom: 12,
+    overflow: "hidden",
+  },
+  petPhoto: { width: "100%", height: "100%" },
 });

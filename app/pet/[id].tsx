@@ -3,12 +3,14 @@ import React, { useEffect, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 // import supabase client to fetch the pet by ID
+import { getPetImage } from "@/constants/PetAssets";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { colors, fonts, fontSizes, spacing } from "../../theme";
@@ -107,7 +109,11 @@ export default function PetProfileScreen() {
 
         {/* image placeholder box */}
         <View style={styles.imageBox}>
-          <Text style={{ color: colors.textSecondary }}>image placeholder</Text>
+          <Image
+            source={getPetImage(pet.name)}
+            style={styles.fullImage}
+            resizeMode="cover"
+          />
         </View>
 
         {/* divider */}
@@ -265,5 +271,10 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: colors.textSecondary,
     fontFamily: fonts.semiBold,
+  },
+  fullImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 20,
   },
 });
