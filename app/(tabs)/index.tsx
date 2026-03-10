@@ -16,35 +16,66 @@ import {
 export default function HomeScreen() {
   const router = useRouter();
   const [recentPets, setRecentPets] = useState<any[]>([]);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // One useEffect to rule them all
   useEffect(() => {
-    fetchRecentPets();
+    async function loadData() {
+      try {
+        setLoading(true);
+        // We run both functions and wait for them to finish
+        await Promise.all([getProfile(), fetchRecentPets()]);
+      } catch (error) {
+        console.error("Error loading home data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
   }, []);
 
-  async function fetchRecentPets() {
-    try {
-      const { data, error } = await supabase
-        .from("pets")
-        .select("id, name, breed, species")
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(5);
+  async function getProfile() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase
+        .from("users")
+        .select("display_name")
+        .eq("id", user.id)
+        .single();
 
-      if (error) throw error;
-      setRecentPets(data || []);
-    } catch (err) {
-      console.log("Error fetching recent pets: ", err);
-    } finally {
-      setLoading(false);
+      if (data) setDisplayName(data.display_name);
     }
+  }
+
+  async function fetchRecentPets() {
+    const { data, error } = await supabase
+      .from("pets")
+      .select("id, name, breed, species")
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (error) throw error;
+    setRecentPets(data || []);
+  }
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: "center" }]}>
+        <ActivityIndicator color="#6D4C3D" size="large" />
+      </View>
+    );
   }
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* header */}
       <View style={styles.header}>
-        <Text style={styles.greeting}>hi, user</Text>
+        <Text style={styles.greeting}>hi, {displayName || "friend"}</Text>
         <Image
           source={require("@/assets/images/cocomascot.png")}
           style={styles.mascot}

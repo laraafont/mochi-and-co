@@ -3,6 +3,7 @@ import { colors, fonts, fontSizes } from "@/theme";
 import { useState } from "react";
 import {
     Alert,
+    Image,
     KeyboardAvoidingView,
     Platform,
     StyleSheet,
@@ -56,9 +57,11 @@ export default function AuthScreen() {
     >
       <View style={styles.headerCircle}>
         <Text style={styles.headerTitle}>{isLogin ? "log in" : "sign up"}</Text>
-        <View style={styles.pixelArtPlaceholder}>
-          <Text style={{ fontSize: 40 }}>🐶</Text>
-        </View>
+        <Image
+          source={require("@/assets/images/cocomascot.png")}
+          style={styles.mascot}
+          resizeMode="contain"
+        />
       </View>
 
       <View style={styles.formContainer}>
@@ -173,5 +176,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: fontSizes.xs,
     fontFamily: fonts.regular,
+  },
+  mascot: {
+    width: 150,
+    height: 150,
   },
 });
