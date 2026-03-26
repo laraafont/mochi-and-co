@@ -72,8 +72,19 @@ export default function AddPetScreen() {
 
     setLoading(true);
     try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) throw userError;
+      if (!user) {
+        throw new Error("You must be signed in to add a pet.");
+      }
+
       const payload = {
         name: form.name.trim(),
+        creator_id: user.id,
         species: form.species,
         breed: form.breed.trim() || null,
         gender: form.gender || null,
