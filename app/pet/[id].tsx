@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   StyleSheet,
   Text,
@@ -11,6 +12,7 @@ import {
 } from "react-native";
 // import supabase client to fetch the pet by ID
 import { getPetImage } from "@/constants/PetAssets";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { colors, fonts, fontSizes, spacing } from "../../theme";
@@ -34,6 +36,9 @@ export default function PetProfileScreen() {
   // stores whether we are still loading
   // starts as true because we haven't fetched yet
   const [loading, setLoading] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // useEffect runs after component renders
   // takes two arguments:
@@ -44,7 +49,11 @@ export default function PetProfileScreen() {
   // we include [id] because -> if the route id changes, we should re-fetch that pet
   useEffect(() => {
     // async: this function uses "await" inside it
-    async function fetchPet() {
+    async function fetchPetAndStatus() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       const { data, error } = await supabase
         .from("pets")
         .select("*")
@@ -57,6 +66,12 @@ export default function PetProfileScreen() {
       } else {
         // update state with returned pet object
         setPet(data);
+        if (user) {
+          // check if i am the creator
+          setIsOwner(data.creator_id === user.id);
+          // check if i am the current adopter
+          setIsLiked(data.adopter_id === user.id);
+        }
       }
 
       // stop loading spinner
@@ -64,9 +79,51 @@ export default function PetProfileScreen() {
     }
     // only fetch if id exists
     if (id) {
-      fetchPet();
+      fetchPetAndStatus();
     }
   }, [id]); // <-- dependency array
+
+  async function toggleAdoption() {
+    if (isOwner) {
+      Alert.alert(
+        "You cannot adopt a pet you listed for rehoming, they are yours!",
+      );
+      return;
+    }
+
+    setActionLoading(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      Alert.alert("You must be logged in to begin adopting a pet!");
+      setActionLoading(false);
+      return;
+    }
+
+    const newAdopterId = isLiked ? null : user.id;
+
+    const { error } = await supabase
+      .from("pets")
+      .update({ adopter_id: newAdopterId })
+      .eq("id", id);
+
+    if (!error) {
+      setIsLiked(!isLiked);
+      if (!isLiked) {
+        Alert.alert(
+          `Yay! ${pet?.name ?? "This pet"} is now in your 'Adopting' list.`,
+        );
+      } else {
+        Alert.alert("Pet removed from your 'Adopting' list.");
+      }
+    } else {
+      Alert.alert("Error", "Could not update adoption status.");
+    }
+
+    setActionLoading(false);
+  }
 
   if (loading) {
     return (
@@ -81,9 +138,12 @@ export default function PetProfileScreen() {
 
   if (!pet) {
     return (
-      <View style={styles.center}>
-        <Text>Pet not found.</Text>
-      </View>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.center}>
+          <Text>Pet not found.</Text>
+        </View>
+      </>
     );
   }
 
@@ -95,11 +155,21 @@ export default function PetProfileScreen() {
         <View style={styles.topRow}>
           {/* back button */}
           <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.icon}>←</Text>
+            <Ionicons name="arrow-back" size={28} color={colors.primary} />
           </TouchableOpacity>
 
           {/* favorite icon */}
-          <Text style={styles.icon}>♡</Text>
+          <TouchableOpacity
+            onPress={toggleAdoption}
+            disabled={actionLoading || isOwner}
+            style={{ opacity: isOwner ? 0.3 : 1 }}
+          >
+            <Ionicons
+              name={isLiked ? "heart" : "heart-outline"}
+              size={28}
+              color={isLiked ? "#FF6B6B" : colors.primary}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* pet name pill */}
@@ -161,13 +231,25 @@ export default function PetProfileScreen() {
 
         {/* buttons row */}
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>message rehomer</Text>
-          </TouchableOpacity>
+          {/* edit listing */}
+          {isOwner ? (
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => Alert.alert("Coming Soon!")}
+            >
+              <Text style={styles.primaryButtonText}>edit pet</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.primaryButton}>
+                <Text style={styles.primaryButtonText}>message rehomer</Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>apply to adopt</Text>
-          </TouchableOpacity>
+              <TouchableOpacity style={styles.primaryButton}>
+                <Text style={styles.primaryButtonText}>apply to adopt</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </SafeAreaView>
     </>
