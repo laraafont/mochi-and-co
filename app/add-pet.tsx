@@ -2,11 +2,13 @@ import OptionSheet from "@/components/OptionSheet";
 import { supabase } from "@/lib/supabase"; // Ensure this path matches your project structure
 import { colors, fonts } from "@/theme";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { Stack, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Image,
     ScrollView,
     StyleSheet,
     Switch,
@@ -16,9 +18,18 @@ import {
     View,
 } from "react-native";
 
+const PET_PHOTOS_BUCKET = "pet-photos";
+
+type SelectedImage = {
+  uri: string;
+  mimeType?: string | null;
+  fileName?: string | null;
+};
+
 export default function AddPetScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -61,6 +72,74 @@ export default function AddPetScreen() {
     }
   };
 
+  const pickImage = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission Needed",
+          "Photo library access is required to upload a pet photo.",
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.length) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      setSelectedImage({
+        uri: asset.uri,
+        mimeType: asset.mimeType,
+        fileName: asset.fileName,
+      });
+    } catch (error: any) {
+      Alert.alert(
+        "Image Error",
+        error?.message || "Could not open the image picker.",
+      );
+    }
+  };
+
+  const getFileExtension = (image: SelectedImage, blobType?: string) => {
+    const fromFileName = image.fileName?.split(".").pop()?.toLowerCase();
+    if (fromFileName) return fromFileName;
+
+    const mimeType = image.mimeType || blobType;
+    if (mimeType?.includes("png")) return "png";
+    if (mimeType?.includes("webp")) return "webp";
+    return "jpg";
+  };
+
+  const uploadPetImage = async (userId: string) => {
+    if (!selectedImage) return null;
+
+    const response = await fetch(selectedImage.uri);
+    const blob = await response.blob();
+    const extension = getFileExtension(selectedImage, blob.type);
+    const safeName =
+      form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-") || "pet";
+    const filePath = `${userId}/${Date.now()}-${safeName}.${extension}`;
+
+    const { error } = await supabase.storage
+      .from(PET_PHOTOS_BUCKET)
+      .upload(filePath, blob, {
+        contentType: selectedImage.mimeType || blob.type || "image/jpeg",
+        upsert: false,
+      });
+
+    if (error) throw error;
+    return filePath;
+  };
+
   const handleSavePet = async () => {
     if (!form.name || !form.species) {
       Alert.alert(
@@ -82,6 +161,19 @@ export default function AddPetScreen() {
         throw new Error("You must be signed in to add a pet.");
       }
 
+      let imagePath: string | null = null;
+      let imageUploadErrorMessage: string | null = null;
+
+      if (selectedImage) {
+        try {
+          imagePath = await uploadPetImage(user.id);
+        } catch (error: any) {
+          imageUploadErrorMessage =
+            error?.message || "Photo upload failed, but the pet can still be saved.";
+          console.error("Error uploading pet image:", error);
+        }
+      }
+
       const payload = {
         name: form.name.trim(),
         creator_id: user.id,
@@ -95,6 +187,7 @@ export default function AddPetScreen() {
         compatible_with_dogs: form.compatible_with.includes("dogs"),
         compatible_with_cats: form.compatible_with.includes("cats"),
         compatible_with_kids: form.compatible_with.includes("kids"),
+        image_url: imagePath,
         status: form.status,
       };
 
@@ -102,7 +195,14 @@ export default function AddPetScreen() {
 
       if (error) throw error;
 
-      Alert.alert("Success!", `${form.name} is now listed.`);
+      if (imageUploadErrorMessage) {
+        Alert.alert(
+          "Pet Saved Without Photo",
+          `${form.name} was added, but the image upload failed.\n\n${imageUploadErrorMessage}`,
+        );
+      } else {
+        Alert.alert("Success!", `${form.name} is now listed.`);
+      }
       router.replace("/(tabs)/browse");
     } catch (error: any) {
       const debugMessage = [
@@ -155,14 +255,31 @@ export default function AddPetScreen() {
 
         <View style={styles.imageBox}>
           <Text style={styles.imageLabel}>upload pet&apos;s pics</Text>
-          <View style={styles.imagePlaceholder}>
-            <Ionicons
-              name="image"
-              size={80}
-              color="#7A5C46"
-              style={{ opacity: 0.2 }}
-            />
-          </View>
+          <TouchableOpacity
+            style={styles.imagePlaceholder}
+            onPress={pickImage}
+            activeOpacity={0.85}
+          >
+            {selectedImage ? (
+              <Image
+                source={{ uri: selectedImage.uri }}
+                style={styles.selectedImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Ionicons
+                name="image"
+                size={80}
+                color="#7A5C46"
+                style={{ opacity: 0.2 }}
+              />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.imageAction} onPress={pickImage}>
+            <Text style={styles.imageActionText}>
+              {selectedImage ? "replace photo" : "choose photo"}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.grid}>
@@ -342,6 +459,22 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
+  },
+  selectedImage: {
+    width: "100%",
+    height: "100%",
+  },
+  imageAction: {
+    marginTop: 10,
+    backgroundColor: colors.textPrimary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  imageActionText: {
+    color: colors.primary,
+    fontFamily: fonts.bold,
+    fontSize: 12,
   },
   dotRow: { flexDirection: "row", gap: 5, marginTop: 10 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#A08E74" },

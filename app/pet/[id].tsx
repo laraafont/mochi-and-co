@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { getPetImage } from "@/constants/PetAssets";
+import * as PetAssets from "@/constants/PetAssets";
 import { supabase } from "../../lib/supabase";
 import { colors, fonts, fontSizes, spacing } from "../../theme";
 
@@ -303,7 +303,7 @@ export default function PetProfileScreen() {
 
           <View style={styles.imageBox}>
             <Image
-              source={getPetImage(pet.name)}
+              source={PetAssets.getPetImageSource(pet)}
               style={styles.fullImage}
               resizeMode="cover"
             />
@@ -562,5 +562,17 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontFamily: fonts.bold,
     fontSize: 12,
+  },
+  placeholder: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    width: "100%",
+  },
+  placeholderText: {
+    color: colors.background,
+    fontFamily: fonts.semiBold,
+    marginTop: 8,
   },
 });

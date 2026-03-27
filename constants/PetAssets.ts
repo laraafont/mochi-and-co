@@ -1,12 +1,44 @@
 // constants/PetAssets.ts
-export const getPetImage = (name: string) => {
-  if (!name) return require("@/assets/images/cocomascot.png");
+import type { ImageSourcePropType } from "react-native";
 
-  const lowerName = name.toLowerCase();
+import { supabase } from "@/lib/supabase";
 
-  if (lowerName === "mochi") return require("@/assets/images/mochi.png");
-  if (lowerName === "coco") return require("@/assets/images/coco.png");
+const fallbackPetImage = require("@/assets/images/cocomascot.png");
+const PET_PHOTOS_BUCKET = "pet-photos";
 
-  // Default fallback if it's any other pet
-  return require("@/assets/images/cocomascot.png");
+type PetImageLike = {
+  image_url?: string | null;
 };
+
+function isRemoteUrl(value: string) {
+  return /^(https?:|data:|blob:)/i.test(value);
+}
+
+function normalizeStoragePath(value: string) {
+  return value
+    .trim()
+    .replace(/^\/+/, "")
+    .replace(new RegExp(`^${PET_PHOTOS_BUCKET}\/`), "");
+}
+
+export function getPetImageSource(
+  pet?: PetImageLike | null,
+): ImageSourcePropType {
+  const imageUrl = pet?.image_url?.trim();
+
+  if (!imageUrl) {
+    return fallbackPetImage;
+  }
+
+  if (isRemoteUrl(imageUrl)) {
+    return { uri: imageUrl };
+  }
+
+  const { data } = supabase.storage
+    .from(PET_PHOTOS_BUCKET)
+    .getPublicUrl(normalizeStoragePath(imageUrl));
+
+  return data.publicUrl ? { uri: data.publicUrl } : fallbackPetImage;
+}
+
+export const getPetImage = getPetImageSource;

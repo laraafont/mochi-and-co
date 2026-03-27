@@ -1,4 +1,4 @@
-import { getPetImage } from "@/constants/PetAssets";
+import { getPetImageSource } from "@/constants/PetAssets";
 import { supabase } from "@/lib/supabase";
 import { colors, fonts, fontSizes, spacing } from "@/theme";
 import { useRouter } from "expo-router";
@@ -53,7 +53,7 @@ export default function HomeScreen() {
   async function fetchRecentPets() {
     const { data, error } = await supabase
       .from("pets")
-      .select("id, name, breed, species")
+      .select("id, name, breed, species, image_url")
       .eq("status", "active")
       .order("created_at", { ascending: false })
       .limit(5);
@@ -103,7 +103,7 @@ export default function HomeScreen() {
                 >
                   <View style={styles.imagePlaceholder}>
                     <Image
-                      source={getPetImage(pet.name)}
+                      source={getPetImageSource(pet)}
                       style={{
                         width: "100%",
                         height: "100%",

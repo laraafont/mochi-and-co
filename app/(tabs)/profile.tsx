@@ -1,4 +1,4 @@
-import { getPetImage } from "@/constants/PetAssets";
+import { getPetImageSource } from "@/constants/PetAssets";
 import { supabase } from "@/lib/supabase";
 import { colors, fonts, fontSizes, spacing } from "@/theme";
 import { Ionicons } from "@expo/vector-icons";
@@ -109,7 +109,7 @@ export default function ProfileScreen() {
     >
       <View style={styles.imageBox}>
         <Image
-          source={getPetImage(item.name)}
+          source={getPetImageSource(item)}
           style={styles.fullImage}
           resizeMode="cover"
         />

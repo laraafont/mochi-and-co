@@ -1,4 +1,4 @@
-import { getPetImage } from "@/constants/PetAssets";
+import { getPetImageSource } from "@/constants/PetAssets";
 import React from "react"; // import react because we are creating a react component
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { colors, fonts, fontSizes } from "../theme";
@@ -14,6 +14,7 @@ type PetCardProps = {
     breed: string;
     size: string;
     gender: string;
+    image_url?: string | null;
   };
   onPress?: () => void; // optional function (when card is tapped)
 };
@@ -28,7 +29,7 @@ export default function PetCard({ pet, onPress }: PetCardProps) {
       {/* photo section */}
       <View style={styles.imageContainer}>
         <Image
-          source={getPetImage(pet.name)}
+          source={getPetImageSource(pet)}
           style={styles.petPhoto}
           resizeMode="cover"
         />
