@@ -39,15 +39,50 @@ export default function ProfileScreen() {
       if (profile) setDisplayName(profile.display_name);
 
       // fetch pets based on toggle
-      let query = supabase.from("pets").select("*");
       if (isAdoptingView) {
-        query = query.eq("adopter_id", user.id);
-      } else {
-        query = query.eq("creator_id", user.id);
-      }
+        const { data: interestData, error: interestError } = await supabase
+          .from("pet_interests")
+          .select("pet_id")
+          .eq("user_id", user.id);
 
-      const { data: petData } = await query;
-      setPets(petData || []);
+        if (interestError) {
+          console.log("Error fetching interested pets:", interestError);
+          setPets([]);
+          setLoading(false);
+          return;
+        }
+
+        const petIds = interestData?.map((interest) => interest.pet_id) || [];
+        if (petIds.length === 0) {
+          setPets([]);
+          setLoading(false);
+          return;
+        }
+
+        const { data: petData, error: petError } = await supabase
+          .from("pets")
+          .select("*")
+          .in("id", petIds);
+
+        if (petError) {
+          console.log("Error fetching pets:", petError);
+          setPets([]);
+        } else {
+          setPets(petData || []);
+        }
+      } else {
+        const { data: petData, error: petError } = await supabase
+          .from("pets")
+          .select("*")
+          .eq("creator_id", user.id);
+
+        if (petError) {
+          console.log("Error fetching pets:", petError);
+          setPets([]);
+        } else {
+          setPets(petData || []);
+        }
+      }
       setLoading(false);
     }
 
@@ -267,7 +302,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 
-  footer: { marginTop: "auto" },
+  footer: { marginTop: 20 },
   addButton: {
     flexDirection: "row",
     alignItems: "center",

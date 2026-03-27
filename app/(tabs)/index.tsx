@@ -4,13 +4,13 @@ import { colors, fonts, fontSizes, spacing } from "@/theme";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function HomeScreen() {
@@ -24,7 +24,6 @@ export default function HomeScreen() {
     async function loadData() {
       try {
         setLoading(true);
-        // We run both functions and wait for them to finish
         await Promise.all([getProfile(), fetchRecentPets()]);
       } catch (error) {
         console.error("Error loading home data:", error);
