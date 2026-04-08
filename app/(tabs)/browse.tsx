@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PetCard from "../../components/PetCard";
 import { supabase } from "../../lib/supabase";
 import { colors, fonts, fontSizes, spacing } from "../../theme";
@@ -20,6 +21,7 @@ export default function BrowseScreen() {
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const { filters, setFilters, filteredPets } = usePetFilters(pets);
 
@@ -45,7 +47,13 @@ export default function BrowseScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: colors.background,
+        paddingTop: insets.top,
+      }}
+    >
       {/* search bar */}
       <TouchableOpacity
         style={styles.searchBarTrigger}

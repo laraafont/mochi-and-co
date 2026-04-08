@@ -12,6 +12,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -71,76 +72,78 @@ export default function HomeScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* header */}
-      <View style={styles.header}>
-        <Text style={styles.greeting}>hi, {displayName || "friend"}</Text>
-        <Image
-          source={require("@/assets/images/cocomascot.png")}
-          style={styles.mascot}
-          resizeMode="contain"
-        />
-      </View>
-
-      {/* curved container */}
-      <View style={styles.curveWrapper}>
-        <View style={styles.darkSection}>
-          <Text style={styles.sectionTitle}>recently posted</Text>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.petScroll}
-          >
-            {loading ? (
-              <ActivityIndicator color="#E6D8C1" />
-            ) : (
-              recentPets.map((pet) => (
-                <TouchableOpacity
-                  key={pet.id}
-                  style={styles.petCard}
-                  onPress={() => router.push(`/pet/${pet.id}`)}
-                >
-                  <View style={styles.imagePlaceholder}>
-                    <Image
-                      source={getPetImageSource(pet)}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        borderRadius: 10,
-                      }}
-                    />
-                  </View>
-                  <Text style={styles.petName} numberOfLines={1}>
-                    {pet.name}
-                  </Text>
-                </TouchableOpacity>
-              ))
-            )}
-          </ScrollView>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* header */}
+        <View style={styles.header}>
+          <Text style={styles.greeting}>hi, {displayName || "friend"}</Text>
+          <Image
+            source={require("@/assets/images/cocomascot.png")}
+            style={styles.mascot}
+            resizeMode="contain"
+          />
         </View>
-      </View>
 
-      {/* get started */}
-      <View style={styles.footer}>
-        <Text style={styles.footerTitle}>get started</Text>
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => router.push("/(tabs)/browse")}
-          >
-            <Text style={styles.btnText}>find a pet</Text>
-          </TouchableOpacity>
+        {/* curved container */}
+        <View style={styles.curveWrapper}>
+          <View style={styles.darkSection}>
+            <Text style={styles.sectionTitle}>recently posted</Text>
 
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => router.push("/add-pet")}
-          >
-            <Text style={styles.btnText}>rehome</Text>
-          </TouchableOpacity>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.petScroll}
+            >
+              {loading ? (
+                <ActivityIndicator color="#E6D8C1" />
+              ) : (
+                recentPets.map((pet) => (
+                  <TouchableOpacity
+                    key={pet.id}
+                    style={styles.petCard}
+                    onPress={() => router.push(`/pet/${pet.id}`)}
+                  >
+                    <View style={styles.imagePlaceholder}>
+                      <Image
+                        source={getPetImageSource(pet)}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          borderRadius: 10,
+                        }}
+                      />
+                    </View>
+                    <Text style={styles.petName} numberOfLines={1}>
+                      {pet.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+
+        {/* get started */}
+        <View style={styles.footer}>
+          <Text style={styles.footerTitle}>get started</Text>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => router.push("/(tabs)/browse")}
+            >
+              <Text style={styles.btnText}>find a pet</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => router.push("/add-pet")}
+            >
+              <Text style={styles.btnText}>rehome</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

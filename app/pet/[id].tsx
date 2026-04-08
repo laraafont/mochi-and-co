@@ -40,6 +40,12 @@ export default function PetProfileScreen() {
   const [interestCount, setInterestCount] = useState(0);
 
   useEffect(() => {
+    if (!id) {
+      return;
+    }
+
+    let isActive = true;
+
     async function fetchPetAndStatus() {
       const {
         data: { user },
@@ -53,7 +59,13 @@ export default function PetProfileScreen() {
 
       if (petError) {
         console.log("Error fetching pet:", petError);
-        setLoading(false);
+        if (isActive) {
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (!isActive) {
         return;
       }
 
@@ -99,6 +111,10 @@ export default function PetProfileScreen() {
         }
       }
 
+      if (!isActive) {
+        return;
+      }
+
       setApplicants(applicantsWithProfiles);
       setInterestCount(count || 0);
       setIsOwner(Boolean(user && petData.creator_id === user.id));
@@ -111,66 +127,152 @@ export default function PetProfileScreen() {
       setLoading(false);
     }
 
-    if (id) {
-      fetchPetAndStatus();
-    }
+    fetchPetAndStatus();
+
+    const channel = supabase
+      .channel(`pet-profile-${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pet_interests",
+          filter: `pet_id=eq.${id}`,
+        },
+        () => {
+          void fetchPetAndStatus();
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pets",
+          filter: `id=eq.${id}`,
+        },
+        () => {
+          void fetchPetAndStatus();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      isActive = false;
+      supabase.removeChannel(channel);
+    };
   }, [id]);
+
+  async function handleStartChat(otherUserId: string) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      Alert.alert("Wait!", "You must be logged in to message.");
+      return;
+    }
+
+    // Identify roles for the conversation record
+    const sellerId = isOwner ? user.id : pet.creator_id;
+    const adopterId = isOwner ? otherUserId : user.id;
+
+    setActionLoading(true);
+
+    // 1. Check if conversation exists (utilizing our UNIQUE constraint logic)
+    const { data: existingConvo } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("pet_id", id)
+      .eq("seller_id", sellerId)
+      .eq("adopter_id", adopterId)
+      .maybeSingle();
+
+    if (existingConvo) {
+      setModalVisible(false);
+      setActionLoading(false);
+      router.push({
+        pathname: "/messages/[id]",
+        params: { id: existingConvo.id },
+      });
+    } else {
+      // 2. Create new thread
+      const { data: newConvo, error } = await supabase
+        .from("conversations")
+        .insert({
+          pet_id: id,
+          seller_id: sellerId,
+          adopter_id: adopterId,
+        })
+        .select()
+        .single();
+
+      setActionLoading(false);
+
+      if (error) {
+        console.log("Error starting chat:", error);
+        Alert.alert("Error", "Could not start a conversation.");
+      } else {
+        setModalVisible(false);
+        router.push({
+          pathname: "/messages/[id]",
+          params: { id: newConvo.id },
+        });
+      }
+    }
+  }
 
   async function toggleAdoption() {
     if (isOwner) {
-      Alert.alert(
-        "You cannot adopt a pet you listed for rehoming, they are yours!",
-      );
+      Alert.alert("Note", "You cannot adopt a pet you listed for rehoming!");
       return;
     }
 
     setActionLoading(true);
-
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
-      Alert.alert("You must be logged in to begin adopting a pet!");
+      Alert.alert(
+        "Login Required",
+        "You must be logged in to express interest.",
+      );
       setActionLoading(false);
       return;
     }
 
-    const interestQuery = supabase.from("pet_interests");
     const { error } = isLiked
-      ? await interestQuery.delete().eq("pet_id", id).eq("user_id", user.id)
-      : await interestQuery.insert({ pet_id: id, user_id: user.id });
+      ? await supabase
+          .from("pet_interests")
+          .delete()
+          .eq("pet_id", id)
+          .eq("user_id", user.id)
+      : await supabase
+          .from("pet_interests")
+          .insert({ pet_id: id, user_id: user.id });
 
     if (error) {
-      Alert.alert("Error", "Could not update adoption status.");
+      Alert.alert("Error", "Could not update interest.");
       setActionLoading(false);
       return;
     }
 
     setIsLiked(!isLiked);
-    setInterestCount((currentCount) =>
-      isLiked ? Math.max(0, currentCount - 1) : currentCount + 1,
-    );
-    setApplicants((currentApplicants) => {
-      if (isLiked) {
-        return currentApplicants.filter(
-          (applicant) => applicant.user_id !== user.id,
-        );
-      }
+    setInterestCount((prev) => (isLiked ? Math.max(0, prev - 1) : prev + 1));
 
-      return [
-        ...currentApplicants,
+    // Refresh applicants locally for the owner view
+    if (isLiked) {
+      setApplicants((prev) => prev.filter((a) => a.user_id !== user.id));
+    } else {
+      setApplicants((prev) => [
+        ...prev,
         {
           user_id: user.id,
           users: { display_name: user.user_metadata?.display_name ?? "You" },
         },
-      ];
-    });
-    Alert.alert(
-      !isLiked
-        ? `Yay! ${pet?.name ?? "This pet"} is now in your 'Adopting' list.`
-        : "Pet removed from your 'Adopting' list.",
-    );
+      ]);
+    }
+
     setActionLoading(false);
   }
 
@@ -216,6 +318,7 @@ export default function PetProfileScreen() {
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
+          {/* Header Row */}
           <View style={styles.topRow}>
             <TouchableOpacity onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={28} color={colors.primary} />
@@ -247,6 +350,7 @@ export default function PetProfileScreen() {
             )}
           </View>
 
+          {/* Interested Adopters Modal */}
           <Modal
             animationType="slide"
             transparent
@@ -285,10 +389,20 @@ export default function PetProfileScreen() {
                       <Text style={styles.applicantName}>
                         {item.users?.display_name ?? "Unknown user"}
                       </Text>
+
+                      <TouchableOpacity
+                        style={[styles.chatIconBtn, { marginRight: 10 }]}
+                        onPress={() => handleStartChat(item.user_id)}
+                      >
+                        <Ionicons
+                          name="chatbubble-ellipses"
+                          size={22}
+                          color={colors.primary}
+                        />
+                      </TouchableOpacity>
+
                       <TouchableOpacity style={styles.chatButton}>
-                        <Text style={styles.chatButtonText}>
-                          finalize adoption
-                        </Text>
+                        <Text style={styles.chatButtonText}>finalize</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -297,6 +411,7 @@ export default function PetProfileScreen() {
             </View>
           </Modal>
 
+          {/* Pet Profile Content */}
           <View style={styles.namePill}>
             <Text style={styles.nameText}>{pet.name}</Text>
           </View>
@@ -341,12 +456,21 @@ export default function PetProfileScreen() {
               </TouchableOpacity>
             ) : (
               <>
-                <TouchableOpacity style={styles.primaryButton}>
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={() => handleStartChat(pet.creator_id)}
+                >
                   <Text style={styles.primaryButtonText}>message rehomer</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.primaryButton}>
-                  <Text style={styles.primaryButtonText}>apply to adopt</Text>
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={toggleAdoption}
+                  disabled={actionLoading}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    {isLiked ? "interested" : "apply to adopt"}
+                  </Text>
                 </TouchableOpacity>
               </>
             )}
@@ -358,29 +482,15 @@ export default function PetProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  contentContainer: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
-  },
-
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
+  container: { flex: 1, backgroundColor: colors.background },
+  contentContainer: { padding: spacing.lg, paddingBottom: spacing.xl },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: spacing.md,
   },
-
   namePill: {
     alignSelf: "center",
     backgroundColor: colors.primary,
@@ -389,66 +499,51 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: spacing.lg,
   },
-
   nameText: {
     fontFamily: fonts.bold,
     fontSize: fontSizes.xl,
     color: colors.textPrimary,
   },
-
   imageBox: {
     height: 200,
     backgroundColor: colors.primary,
     borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
+    overflow: "hidden",
     marginBottom: spacing.lg,
   },
-
-  fullImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 20,
-  },
-
+  fullImage: { width: "100%", height: "100%" },
   divider: {
     height: 2,
     backgroundColor: colors.primary,
     marginVertical: spacing.md,
   },
-
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: spacing.sm,
   },
-
   card: {
     flex: 1,
     backgroundColor: colors.primary,
     padding: spacing.md,
     borderRadius: 16,
   },
-
   cardTitle: {
     fontFamily: fonts.semiBold,
     fontSize: fontSizes.md,
     color: colors.textSecondary,
     marginBottom: 8,
   },
-
   cardText: {
     fontFamily: fonts.regular,
     fontSize: fontSizes.xs,
     color: colors.textPrimary,
   },
-
   buttonRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: spacing.sm,
   },
-
   primaryButton: {
     flex: 1,
     backgroundColor: colors.primary,
@@ -456,17 +551,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
   },
-
   primaryButtonText: {
     color: colors.textSecondary,
     fontFamily: fonts.semiBold,
   },
-
-  badgeButton: {
-    position: "relative",
-    padding: 5,
-  },
-
+  badgeButton: { position: "relative", padding: 5 },
   badge: {
     position: "absolute",
     right: -5,
@@ -478,19 +567,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
-  badgeText: {
-    color: "white",
-    fontSize: 12,
-    fontFamily: fonts.bold,
-  },
-
+  badgeText: { color: "white", fontSize: 12, fontFamily: fonts.bold },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
   },
-
   modalContent: {
     backgroundColor: colors.background,
     borderTopLeftRadius: 30,
@@ -498,20 +580,13 @@ const styles = StyleSheet.create({
     padding: 20,
     height: "50%",
   },
-
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
   },
-
-  modalTitle: {
-    fontFamily: fonts.bold,
-    fontSize: 18,
-    color: colors.primary,
-  },
-
+  modalTitle: { fontFamily: fonts.bold, fontSize: 18, color: colors.primary },
   emptyApplicantsText: {
     textAlign: "center",
     color: colors.primary,
@@ -519,7 +594,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginTop: spacing.lg,
   },
-
   applicantItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -528,7 +602,6 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     marginBottom: 10,
   },
-
   avatarPill: {
     width: 38,
     height: 38,
@@ -537,42 +610,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   avatarLetter: {
     color: colors.primary,
     fontFamily: fonts.bold,
     fontSize: fontSizes.xs,
   },
-
   applicantName: {
     flex: 1,
     fontFamily: fonts.semiBold,
     color: colors.textPrimary,
     marginLeft: 12,
   },
-
+  chatIconBtn: {
+    backgroundColor: colors.background,
+    padding: 8,
+    borderRadius: 12,
+  },
   chatButton: {
     backgroundColor: colors.background,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 10,
   },
-
   chatButtonText: {
     color: colors.primary,
     fontFamily: fonts.bold,
     fontSize: 12,
-  },
-  placeholder: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.primary,
-    width: "100%",
-  },
-  placeholderText: {
-    color: colors.background,
-    fontFamily: fonts.semiBold,
-    marginTop: 8,
   },
 });
