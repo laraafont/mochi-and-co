@@ -28,6 +28,7 @@ export default function ChatScreen() {
   const [inputText, setInputText] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [otherUserName, setOtherUserName] = useState("Chat");
+  const [petName, setPetName] = useState("this pet");
 
   const markConversationRead = useCallback(
     async (userId: string) => {
@@ -70,6 +71,7 @@ export default function ChatScreen() {
         .from("conversations")
         .select(
           `
+          pet:pet_id(name),
           seller:seller_id(display_name, id),
           adopter:adopter_id(display_name, id)
         `,
@@ -78,10 +80,12 @@ export default function ChatScreen() {
         .single();
 
       if (convoData) {
+        const pet = convoData.pet as { name?: string | null } | null;
         const seller = convoData.seller as any;
         const adopter = convoData.adopter as any;
         const otherUser = seller.id === user.id ? adopter : seller;
         setOtherUserName(otherUser?.display_name || "Pet Lover");
+        setPetName(pet?.name || "this pet");
       }
 
       await markConversationRead(user.id);
@@ -213,7 +217,17 @@ export default function ChatScreen() {
                 color={colors.primary}
               />
             </TouchableOpacity>
-            <Text style={styles.headerName}>{otherUserName}</Text>
+            <Text style={styles.headerName}>
+              {otherUserName}{" "}
+              <Text
+                style={{ fontSize: fontSizes.xs, color: colors.textSecondary }}
+              >
+                is interested in{" "}
+              </Text>
+              <Text style={{ color: colors.primary, fontSize: fontSizes.xs }}>
+                {petName}
+              </Text>
+            </Text>
           </View>
 
           {/* 4. Chat Bubbles List */}
