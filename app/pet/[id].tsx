@@ -26,6 +26,10 @@ type Applicant = {
   } | null;
 };
 
+function isAdoptedStatus(status?: string | null) {
+  return status === "adopted" || status === "rehomed";
+}
+
 export default function PetProfileScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
@@ -222,6 +226,11 @@ export default function PetProfileScreen() {
   }
 
   async function toggleAdoption() {
+    if (isAdoptedStatus(pet?.status)) {
+      Alert.alert("Adoption Closed", "This pet has already been adopted.");
+      return;
+    }
+
     if (isOwner) {
       Alert.alert("Note", "You cannot adopt a pet you listed for rehoming!");
       return;
@@ -274,6 +283,44 @@ export default function PetProfileScreen() {
     }
 
     setActionLoading(false);
+  }
+
+  async function handleFinalizeAdoption(applicantUserId: string) {
+    if (!pet || !isOwner) return;
+
+    if (isAdoptedStatus(pet.status)) {
+      Alert.alert("Already Finalized", `${pet.name} has already been adopted.`);
+      return;
+    }
+
+    setActionLoading(true);
+
+    const { error } = await supabase
+      .from("pets")
+      .update({ status: "adopted" })
+      .eq("id", pet.id);
+
+    setActionLoading(false);
+
+    if (error) {
+      console.log("Error finalizing adoption:", error);
+      Alert.alert("Error", "Could not finalize the adoption.");
+      return;
+    }
+
+    setPet((current: any) =>
+      current ? { ...current, status: "adopted" } : current,
+    );
+    setModalVisible(false);
+
+    const adoptedBy =
+      applicants.find((applicant) => applicant.user_id === applicantUserId)?.users
+        ?.display_name ?? "this adopter";
+
+    Alert.alert(
+      "Adoption Finalized",
+      `${pet.name} has been marked as adopted by ${adoptedBy}.`,
+    );
   }
 
   if (loading) {
@@ -339,7 +386,7 @@ export default function PetProfileScreen() {
             ) : (
               <TouchableOpacity
                 onPress={toggleAdoption}
-                disabled={actionLoading}
+                disabled={actionLoading || isAdoptedStatus(pet?.status)}
               >
                 <Ionicons
                   name={isLiked ? "heart" : "heart-outline"}
@@ -401,8 +448,17 @@ export default function PetProfileScreen() {
                         />
                       </TouchableOpacity>
 
-                      <TouchableOpacity style={styles.chatButton}>
-                        <Text style={styles.chatButtonText}>finalize</Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.chatButton,
+                          isAdoptedStatus(pet.status) && styles.chatButtonDisabled,
+                        ]}
+                        onPress={() => handleFinalizeAdoption(item.user_id)}
+                        disabled={actionLoading || isAdoptedStatus(pet.status)}
+                      >
+                        <Text style={styles.chatButtonText}>
+                          {isAdoptedStatus(pet.status) ? "adopted" : "finalize"}
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -422,6 +478,11 @@ export default function PetProfileScreen() {
               style={styles.fullImage}
               resizeMode="cover"
             />
+            {isAdoptedStatus(pet.status) && (
+              <View style={styles.adoptedRibbon}>
+                <Text style={styles.adoptedRibbonText}>ADOPTED</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.divider} />
@@ -459,6 +520,7 @@ export default function PetProfileScreen() {
                 <TouchableOpacity
                   style={styles.primaryButton}
                   onPress={() => handleStartChat(pet.creator_id)}
+                  disabled={isAdoptedStatus(pet.status)}
                 >
                   <Text style={styles.primaryButtonText}>message rehomer</Text>
                 </TouchableOpacity>
@@ -466,10 +528,14 @@ export default function PetProfileScreen() {
                 <TouchableOpacity
                   style={styles.primaryButton}
                   onPress={toggleAdoption}
-                  disabled={actionLoading}
+                  disabled={actionLoading || isAdoptedStatus(pet.status)}
                 >
                   <Text style={styles.primaryButtonText}>
-                    {isLiked ? "interested" : "apply to adopt"}
+                    {isAdoptedStatus(pet.status)
+                      ? "adopted"
+                      : isLiked
+                        ? "interested"
+                        : "apply to adopt"}
                   </Text>
                 </TouchableOpacity>
               </>
@@ -512,6 +578,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   fullImage: { width: "100%", height: "100%" },
+  adoptedRibbon: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 14,
+    backgroundColor: "rgba(111, 77, 56, 0.9)",
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  adoptedRibbonText: {
+    fontFamily: fonts.bold,
+    fontSize: fontSizes.md,
+    color: colors.textPrimary,
+    letterSpacing: 1,
+  },
   divider: {
     height: 2,
     backgroundColor: colors.primary,
@@ -631,6 +712,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 10,
+  },
+  chatButtonDisabled: {
+    opacity: 0.65,
   },
   chatButtonText: {
     color: colors.primary,

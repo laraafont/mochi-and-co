@@ -15,6 +15,10 @@ import {
   View,
 } from "react-native";
 
+function isAdoptedStatus(status?: string | null) {
+  return status === "adopted" || status === "rehomed";
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -120,18 +124,18 @@ export default function ProfileScreen() {
         <Text style={styles.petSubtext}>{item.breed || item.species}</Text>
       </View>
 
-      {item.status === "rehomed" && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>REHOMED</Text>
-        </View>
-      )}
-
       <Ionicons
         name="chevron-forward"
         size={20}
         color={colors.textPrimary}
         style={{ marginLeft: "auto" }}
       />
+
+      {isAdoptedStatus(item.status) && (
+        <View style={styles.adoptedOverlay}>
+          <Text style={styles.adoptedOverlayText}>ADOPTED</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 
@@ -254,6 +258,7 @@ const styles = StyleSheet.create({
 
   listContent: { paddingBottom: spacing.xl },
   petCard: {
+    position: "relative",
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.primary,
@@ -261,6 +266,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     marginBottom: spacing.sm,
     gap: spacing.md,
+    overflow: "hidden",
   },
   petIconPlaceholder: {
     width: 45,
@@ -286,14 +292,22 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     opacity: 0.8,
   },
-  badge: {
-    marginLeft: "auto",
-    backgroundColor: "#F9F4F0",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 5,
+  adoptedOverlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(111, 77, 56, 0.88)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  badgeText: { fontSize: 10, fontWeight: "bold", color: colors.primary },
+  adoptedOverlayText: {
+    fontFamily: fonts.bold,
+    fontSize: fontSizes.md,
+    color: colors.textPrimary,
+    letterSpacing: 1,
+  },
   emptyText: {
     textAlign: "center",
     marginTop: 40,
