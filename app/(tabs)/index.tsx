@@ -4,13 +4,13 @@ import { colors, fonts, fontSizes, spacing } from "@/theme";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -168,17 +168,17 @@ const styles = StyleSheet.create({
     height: 150,
   },
   curveWrapper: {
-    backgroundColor: colors.primary,
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
   },
   darkSection: {
     backgroundColor: colors.primary,
-    borderTopLeftRadius: 100,
-    borderTopRightRadius: 100,
-    borderBottomRightRadius: 100,
-    borderBottomLeftRadius: 100,
+    width: "130%",
+    borderRadius: 999,
     paddingVertical: 30,
     minHeight: 250,
-    marginHorizontal: -20,
+    paddingHorizontal: spacing.md,
   },
   sectionTitle: {
     color: colors.textPrimary,
@@ -214,14 +214,14 @@ const styles = StyleSheet.create({
   footer: { padding: 30, alignItems: "center" },
   footerTitle: {
     fontFamily: fonts.bold,
-    fontSize: 28,
+    fontSize: fontSizes.xl,
     color: colors.primary,
     marginBottom: 20,
   },
   buttonRow: { flexDirection: "row", gap: 15, width: "100%" },
   actionBtn: {
     flex: 1,
-    backgroundColor: "#A08E74",
+    backgroundColor: colors.primary,
     paddingVertical: 15,
     borderRadius: 25,
     alignItems: "center",
