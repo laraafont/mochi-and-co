@@ -26,6 +26,13 @@ type Applicant = {
   } | null;
 };
 
+type PetWithAdopter = {
+  adopted_by_user_id?: string | null;
+  adopted_by?: {
+    display_name?: string | null;
+  } | null;
+};
+
 function isAdoptedStatus(status?: string | null) {
   return status === "adopted" || status === "rehomed";
 }
@@ -57,7 +64,7 @@ export default function PetProfileScreen() {
 
       const { data: petData, error: petError } = await supabase
         .from("pets")
-        .select("*")
+        .select("*, adopted_by:adopted_by_user_id(display_name)")
         .eq("id", id)
         .single();
 
@@ -297,7 +304,7 @@ export default function PetProfileScreen() {
 
     const { error } = await supabase
       .from("pets")
-      .update({ status: "adopted" })
+      .update({ status: "adopted", adopted_by_user_id: applicantUserId })
       .eq("id", pet.id);
 
     setActionLoading(false);
@@ -309,7 +316,14 @@ export default function PetProfileScreen() {
     }
 
     setPet((current: any) =>
-      current ? { ...current, status: "adopted" } : current,
+      current
+        ? {
+            ...current,
+            status: "adopted",
+            adopted_by_user_id: applicantUserId,
+            adopted_by: { display_name: adoptedBy },
+          }
+        : current,
     );
     setModalVisible(false);
 
@@ -356,6 +370,8 @@ export default function PetProfileScreen() {
     pet.compatible_with_dogs ? "good with dogs" : null,
     pet.compatible_with_cats ? "good with cats" : null,
   ].filter(Boolean);
+  const adoptedByName =
+    (pet as PetWithAdopter)?.adopted_by?.display_name ?? "Unknown adopter";
 
   return (
     <>
@@ -481,6 +497,9 @@ export default function PetProfileScreen() {
             {isAdoptedStatus(pet.status) && (
               <View style={styles.adoptedRibbon}>
                 <Text style={styles.adoptedRibbonText}>ADOPTED</Text>
+                <Text style={styles.adoptedRibbonSubtext}>
+                  by: {adoptedByName}
+                </Text>
               </View>
             )}
           </View>
@@ -592,6 +611,12 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     color: colors.textPrimary,
     letterSpacing: 1,
+  },
+  adoptedRibbonSubtext: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.textPrimary,
+    marginTop: 2,
   },
   divider: {
     height: 2,

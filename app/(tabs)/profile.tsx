@@ -19,6 +19,12 @@ function isAdoptedStatus(status?: string | null) {
   return status === "adopted" || status === "rehomed";
 }
 
+type PetWithAdopter = {
+  adopted_by?: {
+    display_name?: string | null;
+  } | null;
+};
+
 export default function ProfileScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -65,7 +71,7 @@ export default function ProfileScreen() {
 
         const { data: petData, error: petError } = await supabase
           .from("pets")
-          .select("*")
+          .select("*, adopted_by:adopted_by_user_id(display_name)")
           .in("id", petIds);
 
         if (petError) {
@@ -77,7 +83,7 @@ export default function ProfileScreen() {
       } else {
         const { data: petData, error: petError } = await supabase
           .from("pets")
-          .select("*")
+          .select("*, adopted_by:adopted_by_user_id(display_name)")
           .eq("creator_id", user.id);
 
         if (petError) {
@@ -105,39 +111,45 @@ export default function ProfileScreen() {
   }
 
   // individual item of pet list styling
-  const renderPetItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.petCard}
-      onPress={() => router.push(`/pet/${item.id}`)} // This points to app/pet/[id].tsx
-      activeOpacity={0.7}
-    >
-      <View style={styles.imageBox}>
-        <Image
-          source={getPetImageSource(item)}
-          style={styles.fullImage}
-          resizeMode="cover"
-        />
-      </View>
+  const renderPetItem = ({ item }: { item: any }) => {
+    const adoptedByName =
+      (item as PetWithAdopter)?.adopted_by?.display_name ?? "Unknown adopter";
 
-      <View style={styles.petInfo}>
-        <Text style={styles.petName}>{item.name}</Text>
-        <Text style={styles.petSubtext}>{item.breed || item.species}</Text>
-      </View>
-
-      <Ionicons
-        name="chevron-forward"
-        size={20}
-        color={colors.textPrimary}
-        style={{ marginLeft: "auto" }}
-      />
-
-      {isAdoptedStatus(item.status) && (
-        <View style={styles.adoptedOverlay}>
-          <Text style={styles.adoptedOverlayText}>ADOPTED</Text>
+    return (
+      <TouchableOpacity
+        style={styles.petCard}
+        onPress={() => router.push(`/pet/${item.id}`)} // This points to app/pet/[id].tsx
+        activeOpacity={0.7}
+      >
+        <View style={styles.imageBox}>
+          <Image
+            source={getPetImageSource(item)}
+            style={styles.fullImage}
+            resizeMode="cover"
+          />
         </View>
-      )}
-    </TouchableOpacity>
-  );
+
+        <View style={styles.petInfo}>
+          <Text style={styles.petName}>{item.name}</Text>
+          <Text style={styles.petSubtext}>{item.breed || item.species}</Text>
+        </View>
+
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={colors.textPrimary}
+          style={{ marginLeft: "auto" }}
+        />
+
+        {isAdoptedStatus(item.status) && (
+          <View style={styles.adoptedOverlay}>
+            <Text style={styles.adoptedOverlayText}>ADOPTED</Text>
+            <Text style={styles.adoptedOverlaySubtext}>by: {adoptedByName}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -307,6 +319,12 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     color: colors.textPrimary,
     letterSpacing: 1,
+  },
+  adoptedOverlaySubtext: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.textPrimary,
+    marginTop: 4,
   },
   emptyText: {
     textAlign: "center",

@@ -133,7 +133,7 @@ export default function MessagesTab() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.pageTitleContainer}>
         <Text style={styles.pageTitleText}>messages</Text>
       </View>

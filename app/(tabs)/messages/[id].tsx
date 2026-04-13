@@ -29,6 +29,7 @@ export default function ChatScreen() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [otherUserName, setOtherUserName] = useState("Chat");
   const [petName, setPetName] = useState("this pet");
+  const [isCurrentUserAdopter, setIsCurrentUserAdopter] = useState(false);
 
   const markConversationRead = useCallback(
     async (userId: string) => {
@@ -84,6 +85,7 @@ export default function ChatScreen() {
         const seller = convoData.seller as any;
         const adopter = convoData.adopter as any;
         const otherUser = seller.id === user.id ? adopter : seller;
+        setIsCurrentUserAdopter(adopter.id === user.id);
         setOtherUserName(otherUser?.display_name || "Pet Lover");
         setPetName(pet?.name || "this pet");
       }
@@ -201,7 +203,7 @@ export default function ChatScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0} // Adjust for bottom tab height
+        keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
       >
         {/* 2. The White "Overlay Box" Container */}
         <View style={styles.whiteContainer}>
@@ -218,15 +220,41 @@ export default function ChatScreen() {
               />
             </TouchableOpacity>
             <Text style={styles.headerName}>
-              {otherUserName}{" "}
-              <Text
-                style={{ fontSize: fontSizes.xs, color: colors.textSecondary }}
-              >
-                is interested in{" "}
-              </Text>
-              <Text style={{ color: colors.primary, fontSize: fontSizes.xs }}>
-                {petName}
-              </Text>
+              {isCurrentUserAdopter ? (
+                <>
+                  You{" "}
+                  <Text
+                    style={{
+                      fontSize: fontSizes.xs,
+                      color: colors.textSecondary,
+                    }}
+                  >
+                    are interested in{" "}
+                  </Text>
+                  <Text
+                    style={{ color: colors.primary, fontSize: fontSizes.xs }}
+                  >
+                    {petName}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  {otherUserName}{" "}
+                  <Text
+                    style={{
+                      fontSize: fontSizes.xs,
+                      color: colors.textSecondary,
+                    }}
+                  >
+                    is interested in{" "}
+                  </Text>
+                  <Text
+                    style={{ color: colors.primary, fontSize: fontSizes.xs }}
+                  >
+                    {petName}
+                  </Text>
+                </>
+              )}
             </Text>
           </View>
 
@@ -282,7 +310,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
-  keyboardView: { flex: 1 },
+  keyboardView: {
+    flex: 1,
+    backgroundColor: "#F8ECDD",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+  },
 
   // Outside Page Title Styling
   pageTitleContainer: {
@@ -300,6 +333,7 @@ const styles = StyleSheet.create({
   whiteContainer: {
     flex: 1,
     backgroundColor: "#F8ECDD",
+    borderRadius: 30,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     overflow: "hidden",
@@ -350,13 +384,17 @@ const styles = StyleSheet.create({
     maxWidth: "75%",
     padding: 12,
     borderRadius: 18,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
   },
   myBubble: {
     backgroundColor: colors.primary, // Dark olive/brown bubble
+    borderBottomLeftRadius: 18,
     borderBottomRightRadius: 4,
   },
   theirBubble: {
     backgroundColor: "#C9AE8F",
+    borderBottomRightRadius: 18,
     borderBottomLeftRadius: 4,
   },
   messageText: {
@@ -374,7 +412,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8ECDD", // Keep inside white box
     borderTopWidth: 1,
     borderTopColor: colors.primary + "15", // Subtle divider
-    paddingBottom: Platform.OS === "ios" ? spacing.md : spacing.lg, // Adjust for OS
+    paddingBottom: Platform.OS === "ios" ? spacing.xs : spacing.lg,
   },
   input: {
     flex: 1,
