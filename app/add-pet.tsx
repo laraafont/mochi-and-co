@@ -85,7 +85,7 @@ export default function AddPetScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
@@ -123,16 +123,21 @@ export default function AddPetScreen() {
     if (!selectedImage) return null;
 
     const response = await fetch(selectedImage.uri);
-    const blob = await response.blob();
-    const extension = getFileExtension(selectedImage, blob.type);
+    if (!response.ok) {
+      throw new Error("Could not read the selected image.");
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const blobType = selectedImage.mimeType || "image/jpeg";
+    const extension = getFileExtension(selectedImage, blobType);
     const safeName =
       form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-") || "pet";
     const filePath = `${userId}/${Date.now()}-${safeName}.${extension}`;
 
     const { error } = await supabase.storage
       .from(PET_PHOTOS_BUCKET)
-      .upload(filePath, blob, {
-        contentType: selectedImage.mimeType || blob.type || "image/jpeg",
+      .upload(filePath, arrayBuffer, {
+        contentType: blobType,
         upsert: false,
       });
 
