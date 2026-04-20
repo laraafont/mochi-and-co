@@ -28,21 +28,27 @@ type PetWithAdopter = {
   } | null;
 };
 
-type MainView = "rehoming" | "adopting";
-type RehomingFilter = "current" | "rehomed";
-type AdoptingFilter = "interested" | "adopted";
+type ProfileTab = "current" | "rehomed" | "interested" | "adopted";
+
+const profileTabs: {
+  id: ProfileTab;
+  label: string;
+  section: "rehoming" | "adopting";
+}[] = [
+  { id: "current", label: "current", section: "rehoming" },
+  { id: "rehomed", label: "rehomed", section: "rehoming" },
+  { id: "interested", label: "interested", section: "adopting" },
+  { id: "adopted", label: "adopted", section: "adopting" },
+];
 
 export default function ProfileScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [pets, setPets] = useState<PetWithAdopter[]>([]);
-  const [mainView, setMainView] = useState<MainView>("rehoming");
-  const [rehomingFilter, setRehomingFilter] =
-    useState<RehomingFilter>("current");
-  const [adoptingFilter, setAdoptingFilter] =
-    useState<AdoptingFilter>("interested");
+  const [rehomingPets, setRehomingPets] = useState<PetWithAdopter[]>([]);
+  const [adoptingPets, setAdoptingPets] = useState<PetWithAdopter[]>([]);
+  const [activeTab, setActiveTab] = useState<ProfileTab>("current");
 
   useEffect(() => {
     async function fetchUserData() {
@@ -64,74 +70,78 @@ export default function ProfileScreen() {
         .single();
       if (profile) setDisplayName(profile.display_name);
 
-      // fetch pets based on top-level view
-      if (mainView === "adopting") {
-        const { data: interestData, error: interestError } = await supabase
-          .from("pet_interests")
-          .select("pet_id")
-          .eq("user_id", user.id);
+      const { data: listedPets, error: listedPetsError } = await supabase
+        .from("pets")
+        .select("*, adopted_by:adopted_by_user_id(display_name)")
+        .eq("creator_id", user.id);
 
-        if (interestError) {
-          console.log("Error fetching interested pets:", interestError);
-          setPets([]);
-          setLoading(false);
-          return;
-        }
-
-        const interestedPetIds =
-          interestData?.map((interest) => interest.pet_id) || [];
-
-        const { data: interestedPets, error: interestPetsError } =
-          interestedPetIds.length
-            ? await supabase
-                .from("pets")
-                .select("*, adopted_by:adopted_by_user_id(display_name)")
-                .in("id", interestedPetIds)
-            : { data: [], error: null };
-
-        if (interestPetsError) {
-          console.log("Error fetching interested pets:", interestPetsError);
-          setPets([]);
-          setLoading(false);
-          return;
-        }
-
-        const { data: adoptedPets, error: adoptedPetsError } = await supabase
-          .from("pets")
-          .select("*, adopted_by:adopted_by_user_id(display_name)")
-          .eq("adopted_by_user_id", user.id);
-
-        if (adoptedPetsError) {
-          console.log("Error fetching adopted pets:", adoptedPetsError);
-          setPets([]);
-        } else {
-          const combinedPets = [...(interestedPets || []), ...(adoptedPets || [])];
-          const uniquePets = Array.from(
-            new Map(
-              combinedPets.map((pet) => [pet.id, pet as PetWithAdopter])
-            ).values()
-          );
-
-          setPets(uniquePets);
-        }
-      } else {
-        const { data: petData, error: petError } = await supabase
-          .from("pets")
-          .select("*, adopted_by:adopted_by_user_id(display_name)")
-          .eq("creator_id", user.id);
-
-        if (petError) {
-          console.log("Error fetching pets:", petError);
-          setPets([]);
-        } else {
-          setPets(petData || []);
-        }
+      if (listedPetsError) {
+        console.log("Error fetching listed pets:", listedPetsError);
+        setRehomingPets([]);
+        setAdoptingPets([]);
+        setLoading(false);
+        return;
       }
+
+      setRehomingPets((listedPets || []) as PetWithAdopter[]);
+
+      const { data: interestData, error: interestError } = await supabase
+        .from("pet_interests")
+        .select("pet_id")
+        .eq("user_id", user.id);
+
+      if (interestError) {
+        console.log("Error fetching interested pets:", interestError);
+        setAdoptingPets([]);
+        setLoading(false);
+        return;
+      }
+
+      const interestedPetIds =
+        interestData?.map((interest) => interest.pet_id) || [];
+
+      const { data: interestedPets, error: interestPetsError } =
+        interestedPetIds.length
+          ? await supabase
+              .from("pets")
+              .select("*, adopted_by:adopted_by_user_id(display_name)")
+              .in("id", interestedPetIds)
+          : { data: [], error: null };
+
+      if (interestPetsError) {
+        console.log("Error fetching interested pets:", interestPetsError);
+        setAdoptingPets([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data: adoptedPets, error: adoptedPetsError } = await supabase
+        .from("pets")
+        .select("*, adopted_by:adopted_by_user_id(display_name)")
+        .eq("adopted_by_user_id", user.id);
+
+      if (adoptedPetsError) {
+        console.log("Error fetching adopted pets:", adoptedPetsError);
+        setAdoptingPets([]);
+      } else {
+        const combinedPets = [
+          ...(interestedPets || []),
+          ...(adoptedPets || []),
+        ];
+        const uniquePets = Array.from(
+          new Map(
+            combinedPets.map((pet) => [pet.id, pet as PetWithAdopter]),
+          ).values(),
+        );
+
+        setAdoptingPets(uniquePets);
+      }
+
       setLoading(false);
     }
 
     fetchUserData();
-  }, [mainView]); // re-fetch when the toggle flips
+  }, []);
 
   async function handleLogout() {
     setLoading(true);
@@ -178,33 +188,32 @@ export default function ProfileScreen() {
         {isAdoptedStatus(item.status) && (
           <View style={styles.adoptedOverlay}>
             <Text style={styles.adoptedOverlayText}>ADOPTED</Text>
-            <Text style={styles.adoptedOverlaySubtext}>by: {adoptedByName}</Text>
+            <Text style={styles.adoptedOverlaySubtext}>
+              by: {adoptedByName}
+            </Text>
           </View>
         )}
       </TouchableOpacity>
     );
   };
 
-  const filteredPets = pets.filter((pet) => {
-    if (mainView === "rehoming") {
-      return rehomingFilter === "current"
-        ? !isAdoptedStatus(pet.status)
-        : isAdoptedStatus(pet.status);
-    }
-
-    return adoptingFilter === "interested"
-      ? !isAdoptedStatus(pet.status)
-      : pet.adopted_by_user_id === userId;
-  });
+  const filteredPets =
+    activeTab === "current"
+      ? rehomingPets.filter((pet) => !isAdoptedStatus(pet.status))
+      : activeTab === "rehomed"
+        ? rehomingPets.filter((pet) => isAdoptedStatus(pet.status))
+        : activeTab === "interested"
+          ? adoptingPets.filter((pet) => !isAdoptedStatus(pet.status))
+          : adoptingPets.filter((pet) => pet.adopted_by_user_id === userId);
 
   const emptyMessage =
-    mainView === "rehoming"
-      ? rehomingFilter === "current"
-        ? "you haven't listed any pets that are still up for rehoming"
-        : "you haven't rehomed any pets yet"
-      : adoptingFilter === "interested"
-      ? "no pets found in your interested list"
-      : "you haven't adopted any pets yet";
+    activeTab === "current"
+      ? "you haven't listed any pets that are still up for rehoming"
+      : activeTab === "rehomed"
+        ? "you haven't rehomed any pets yet"
+        : activeTab === "interested"
+          ? "no pets found in your interested list"
+          : "you haven't adopted any pets yet";
 
   return (
     <View style={styles.container}>
@@ -216,125 +225,50 @@ export default function ProfileScreen() {
             onPress={handleLogout}
             disabled={loading}
           >
-            <Ionicons
-              name="log-out-outline"
-              size={22}
-              color={colors.primary}
-            />
+            <Ionicons name="log-out-outline" size={22} color={colors.primary} />
             <Text style={styles.logoutText}>log out</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.userName}>hi, {displayName || "user"}</Text>
       </View>
 
-      {/* Rehoming vs Adopting Toggle */}
-      <View style={styles.toggleContainer}>
-        <TouchableOpacity
-          style={[
-            styles.toggleButton,
-            mainView === "rehoming" && styles.activeToggle,
-          ]}
-          onPress={() => setMainView("rehoming")}
-        >
-          <Text
-            style={[
-              styles.toggleText,
-              mainView === "rehoming" && styles.activeToggleText,
-            ]}
-          >
-            rehoming
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.toggleButton,
-            mainView === "adopting" && styles.activeToggle,
-          ]}
-          onPress={() => setMainView("adopting")}
-        >
-          <Text
-            style={[
-              styles.toggleText,
-              mainView === "adopting" && styles.activeToggleText,
-            ]}
-          >
-            adopting
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <View style={styles.tabSection}>
+        <View style={styles.tabSectionInner}>
+          <View style={styles.sectionLabels}>
+            <View style={styles.sectionLabelBlock}>
+              <Text style={styles.sectionLabel}>rehoming</Text>
+            </View>
+            <View style={styles.sectionLabelBlock}>
+              <Text style={styles.sectionLabel}>adopting</Text>
+            </View>
+          </View>
 
-      <View style={styles.subToggleContainer}>
-        {mainView === "rehoming" ? (
-          <>
-            <TouchableOpacity
-              style={[
-                styles.subToggleButton,
-                rehomingFilter === "current" && styles.activeSubToggle,
-              ]}
-              onPress={() => setRehomingFilter("current")}
-            >
-              <Text
-                style={[
-                  styles.subToggleText,
-                  rehomingFilter === "current" && styles.activeSubToggleText,
-                ]}
-              >
-                current
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.subToggleButton,
-                rehomingFilter === "rehomed" && styles.activeSubToggle,
-              ]}
-              onPress={() => setRehomingFilter("rehomed")}
-            >
-              <Text
-                style={[
-                  styles.subToggleText,
-                  rehomingFilter === "rehomed" && styles.activeSubToggleText,
-                ]}
-              >
-                rehomed
-              </Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <TouchableOpacity
-              style={[
-                styles.subToggleButton,
-                adoptingFilter === "interested" && styles.activeSubToggle,
-              ]}
-              onPress={() => setAdoptingFilter("interested")}
-            >
-              <Text
-                style={[
-                  styles.subToggleText,
-                  adoptingFilter === "interested" && styles.activeSubToggleText,
-                ]}
-              >
-                interested
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.subToggleButton,
-                adoptingFilter === "adopted" && styles.activeSubToggle,
-              ]}
-              onPress={() => setAdoptingFilter("adopted")}
-            >
-              <Text
-                style={[
-                  styles.subToggleText,
-                  adoptingFilter === "adopted" && styles.activeSubToggleText,
-                ]}
-              >
-                adopted
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
+          <View style={styles.tabRailBackground}>
+            <View style={styles.tabGrid}>
+              {profileTabs.map((tab, index) => (
+                <React.Fragment key={tab.id}>
+                  <TouchableOpacity
+                    style={[
+                      styles.tabPill,
+                      activeTab === tab.id && styles.activeTabPill,
+                    ]}
+                    onPress={() => setActiveTab(tab.id)}
+                  >
+                    <Text
+                      style={[
+                        styles.tabPillText,
+                        activeTab === tab.id && styles.activeTabPillText,
+                      ]}
+                    >
+                      {tab.label}
+                    </Text>
+                  </TouchableOpacity>
+                  {index === 1 && <View style={styles.tabDivider} />}
+                </React.Fragment>
+              ))}
+            </View>
+          </View>
+        </View>
       </View>
 
       {loading ? (
@@ -393,45 +327,64 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
 
-  toggleContainer: {
-    flexDirection: "row",
-    backgroundColor: "#D1C4B5",
-    borderRadius: 25,
-    padding: 4,
-    marginVertical: spacing.md,
-  },
-  toggleButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 21,
-  },
-  activeToggle: { backgroundColor: colors.primary },
-  toggleText: { fontFamily: fonts.bold, color: colors.primary },
-  activeToggleText: { color: colors.textPrimary },
-  subToggleContainer: {
-    flexDirection: "row",
-    alignSelf: "center",
-    backgroundColor: "rgba(111, 77, 56, 0.12)",
-    borderRadius: 20,
-    padding: 4,
+  tabSection: {
+    marginTop: spacing.sm,
     marginBottom: spacing.md,
   },
-  subToggleButton: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs,
-    borderRadius: 16,
+  tabSectionInner: {
+    backgroundColor: colors.primary,
+    borderRadius: 28,
+    padding: spacing.md,
   },
-  activeSubToggle: {
+  sectionLabels: {
+    flexDirection: "row",
+    marginBottom: spacing.sm,
+  },
+  sectionLabelBlock: {
+    flex: 1,
+    alignItems: "center",
+  },
+  sectionLabel: {
+    fontFamily: fonts.bold,
+    fontSize: fontSizes.md,
+    color: colors.textSecondary,
+  },
+  tabRailBackground: {
+    backgroundColor: colors.background,
+    borderRadius: 999,
+    padding: spacing.xs,
+  },
+  tabGrid: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  tabPill: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 0,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: 999,
+    backgroundColor: "#E6D8C8",
+    paddingHorizontal: spacing.sm,
+    marginRight: spacing.xs,
+  },
+  tabDivider: {
+    width: 1,
+    alignSelf: "stretch",
+    backgroundColor: "rgba(111, 77, 56, 0.22)",
+    marginHorizontal: spacing.sm,
+  },
+  activeTabPill: {
     backgroundColor: colors.primary,
   },
-  subToggleText: {
+  tabPillText: {
     fontFamily: fonts.bold,
-    fontSize: fontSizes.xs,
-    color: colors.primary,
+    fontSize: 14,
+    color: "#6F4D38",
   },
-  activeSubToggleText: {
-    color: colors.textPrimary,
+  activeTabPillText: {
+    color: "#E6D8C8",
   },
 
   listContent: { paddingBottom: spacing.xl },
