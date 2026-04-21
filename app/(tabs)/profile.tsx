@@ -3,15 +3,19 @@ import { supabase } from "@/lib/supabase";
 import { colors, fonts, fontSizes, spacing } from "@/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Image,
+  ListRenderItem,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -30,11 +34,13 @@ type PetWithAdopter = {
 
 type ProfileTab = "current" | "rehomed" | "interested" | "adopted";
 
-const profileTabs: {
+type ProfileTabItem = {
   id: ProfileTab;
   label: string;
   section: "rehoming" | "adopting";
-}[] = [
+};
+
+const profileTabs: ProfileTabItem[] = [
   { id: "current", label: "current", section: "rehoming" },
   { id: "rehomed", label: "rehomed", section: "rehoming" },
   { id: "interested", label: "interested", section: "adopting" },
@@ -43,6 +49,9 @@ const profileTabs: {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { width: windowWidth } = useWindowDimensions();
+  const pageWidth = windowWidth - spacing.lg * 2;
+  const pagerRef = useRef<FlatList<ProfileTabItem>>(null);
   const [loading, setLoading] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -143,6 +152,16 @@ export default function ProfileScreen() {
     fetchUserData();
   }, []);
 
+  useEffect(() => {
+    const activeIndex = profileTabs.findIndex((tab) => tab.id === activeTab);
+    if (activeIndex === -1) return;
+
+    pagerRef.current?.scrollToOffset({
+      offset: activeIndex * pageWidth,
+      animated: false,
+    });
+  }, [activeTab, pageWidth]);
+
   async function handleLogout() {
     setLoading(true);
     const { error } = await supabase.auth.signOut();
@@ -197,23 +216,66 @@ export default function ProfileScreen() {
     );
   };
 
-  const filteredPets =
-    activeTab === "current"
-      ? rehomingPets.filter((pet) => !isAdoptedStatus(pet.status))
-      : activeTab === "rehomed"
-        ? rehomingPets.filter((pet) => isAdoptedStatus(pet.status))
-        : activeTab === "interested"
-          ? adoptingPets.filter((pet) => !isAdoptedStatus(pet.status))
-          : adoptingPets.filter((pet) => pet.adopted_by_user_id === userId);
+  const tabContent: Record<
+    ProfileTab,
+    { pets: PetWithAdopter[]; emptyMessage: string }
+  > = {
+    current: {
+      pets: rehomingPets.filter((pet) => !isAdoptedStatus(pet.status)),
+      emptyMessage:
+        "you haven't listed any pets that are still up for rehoming",
+    },
+    rehomed: {
+      pets: rehomingPets.filter((pet) => isAdoptedStatus(pet.status)),
+      emptyMessage: "you haven't rehomed any pets yet",
+    },
+    interested: {
+      pets: adoptingPets.filter((pet) => !isAdoptedStatus(pet.status)),
+      emptyMessage: "no pets found in your interested list",
+    },
+    adopted: {
+      pets: adoptingPets.filter((pet) => pet.adopted_by_user_id === userId),
+      emptyMessage: "you haven't adopted any pets yet",
+    },
+  };
 
-  const emptyMessage =
-    activeTab === "current"
-      ? "you haven't listed any pets that are still up for rehoming"
-      : activeTab === "rehomed"
-        ? "you haven't rehomed any pets yet"
-        : activeTab === "interested"
-          ? "no pets found in your interested list"
-          : "you haven't adopted any pets yet";
+  function scrollToTab(tabId: ProfileTab) {
+    const tabIndex = profileTabs.findIndex((tab) => tab.id === tabId);
+    if (tabIndex === -1) return;
+
+    pagerRef.current?.scrollToIndex({ index: tabIndex, animated: true });
+    setActiveTab(tabId);
+  }
+
+  function handlePagerMomentumEnd(
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) {
+    const nextIndex = Math.round(event.nativeEvent.contentOffset.x / pageWidth);
+    const nextTab = profileTabs[nextIndex]?.id;
+
+    if (nextTab && nextTab !== activeTab) {
+      setActiveTab(nextTab);
+    }
+  }
+
+  const renderTabPage: ListRenderItem<ProfileTabItem> = ({ item }) => {
+    const { pets, emptyMessage } = tabContent[item.id];
+
+    return (
+      <View style={[styles.page, { width: pageWidth }]}>
+        <FlatList
+          data={pets}
+          keyExtractor={(pet) => pet.id}
+          renderItem={renderPetItem}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>{emptyMessage}</Text>
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -252,7 +314,7 @@ export default function ProfileScreen() {
                       styles.tabPill,
                       activeTab === tab.id && styles.activeTabPill,
                     ]}
-                    onPress={() => setActiveTab(tab.id)}
+                    onPress={() => scrollToTab(tab.id)}
                   >
                     <Text
                       style={[
@@ -274,15 +336,34 @@ export default function ProfileScreen() {
       {loading ? (
         <ActivityIndicator color={colors.primary} style={{ flex: 1 }} />
       ) : (
-        <FlatList
-          data={filteredPets}
-          keyExtractor={(item) => item.id}
-          renderItem={renderPetItem}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>{emptyMessage}</Text>
-          }
-        />
+        <View style={styles.pagerSection}>
+          <FlatList
+            ref={pagerRef}
+            data={profileTabs}
+            keyExtractor={(item) => item.id}
+            renderItem={renderTabPage}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={handlePagerMomentumEnd}
+            getItemLayout={(_, index) => ({
+              length: pageWidth,
+              offset: pageWidth * index,
+              index,
+            })}
+          />
+          <View style={styles.paginationDots}>
+            {profileTabs.map((tab) => (
+              <View
+                key={tab.id}
+                style={[
+                  styles.paginationDot,
+                  activeTab === tab.id && styles.paginationDotActive,
+                ]}
+              />
+            ))}
+          </View>
+        </View>
       )}
 
       <View style={styles.footer}>
@@ -380,7 +461,7 @@ const styles = StyleSheet.create({
   },
   tabPillText: {
     fontFamily: fonts.bold,
-    fontSize: 14,
+    fontSize: 9,
     color: "#6F4D38",
   },
   activeTabPillText: {
@@ -388,6 +469,30 @@ const styles = StyleSheet.create({
   },
 
   listContent: { paddingBottom: spacing.xl },
+  pagerSection: {
+    flex: 1,
+  },
+  page: {
+    flex: 1,
+  },
+  paginationDots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  paginationDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: "rgba(111, 77, 56, 0.22)",
+  },
+  paginationDotActive: {
+    width: 18,
+    backgroundColor: "rgba(111, 77, 56, 0.5)",
+  },
   petCard: {
     position: "relative",
     flexDirection: "row",
